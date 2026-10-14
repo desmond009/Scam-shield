@@ -37,11 +37,12 @@ async function mlHealthy(): Promise<{ ok: boolean; modelVersion: string | null }
 
 export async function getRulesView() {
   const { rules } = await getRiskConfig();
-  const rows = await prisma.ruleConfig.findMany({ select: { key: true, updatedBy: true, updatedAt: true } });
+  const rows = await prisma.ruleConfig.findMany({ where: { updatedBy: { not: null } }, select: { key: true, updatedAt: true } });
   const meta = new Map(rows.map((r) => [r.key, r]));
   return rules.map((r) => ({
     ...r,
     defaults: DEFAULT_RULES.find((d) => d.code === r.code)!,
+    // Only edits made by an admin count; seeded defaults have no editor.
     updatedAt: meta.get(r.code)?.updatedAt ?? null,
   }));
 }

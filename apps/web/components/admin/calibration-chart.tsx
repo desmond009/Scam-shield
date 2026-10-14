@@ -8,18 +8,12 @@ import { ChartLegend } from "./chart-legend";
 import { DataTable } from "./data-table";
 import { SYSTEM_BY_KEY } from "./labels";
 
-type Row = { predicted: number; observed: number; bin: number; count: number };
+type Row = Evaluation["calibration"]["points"][number];
 
-/** Ten equal-width bins over the ML probability; a point belongs to the bin its mean prediction falls in. */
-function rows(ev: Evaluation): Row[] {
-  const counts = ev.calibration.bin_counts;
-  return ev.calibration.points.map((p) => {
-    const bin = Math.min(counts.length - 1, Math.max(0, Math.ceil(p.predicted * counts.length) - 1));
-    return { ...p, bin, count: counts[bin] ?? 0 };
-  });
-}
+/** Ten equal-width bins over the ML probability; each point carries its own bin range and payment count. */
+const rows = (ev: Evaluation): Row[] => ev.calibration.points;
 
-const binLabel = (bin: number) => `${bin * 10}–${(bin + 1) * 10}%`;
+const binLabel = ([lo, hi]: Row["bin"]) => `${Math.round(lo * 100)}–${Math.round(hi * 100)}%`;
 
 export function CalibrationChart({ ev, showTable }: { ev: Evaluation; showTable: boolean }) {
   const data = rows(ev);

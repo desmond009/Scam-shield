@@ -47,7 +47,7 @@ test-ml: ## Python tests (feature parity + scoring contract); trains a local mod
 	cd services/ml && .venv/bin/python -m scamshield_ml.pipeline && .venv/bin/python -m pytest -q -W ignore
 
 e2e: ## Playwright end-to-end test against the running stack (make demo first)
-	npx -w @scamshield/web playwright test
+	cd apps/web && npx playwright test
 
 loadtest: ## Load test POST /api/payments/check against the running stack
 	node scripts/loadtest.mjs

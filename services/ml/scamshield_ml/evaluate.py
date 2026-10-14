@@ -9,7 +9,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from sklearn.calibration import calibration_curve  # noqa: E402
 from sklearn.inspection import permutation_importance  # noqa: E402
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score  # noqa: E402
 
@@ -43,6 +42,21 @@ def at_threshold(y: np.ndarray, s: np.ndarray, t: float) -> dict:
         "f1": round(2 * precision * recall / (precision + recall) if precision + recall else 0.0, 4),
         "flag_rate": round(float(flag.mean()), 5),
     }
+
+
+def calibration_bins(y: np.ndarray, p: np.ndarray, n_bins: int = 10) -> dict:
+    """Reliability diagram data: one entry per non-empty probability bin with its mean prediction, observed fraud
+    rate and number of payments (so the UI never has to align separate arrays)."""
+    edges = np.linspace(0, 1, n_bins + 1)
+    idx = np.clip(np.digitize(p, edges[1:-1]), 0, n_bins - 1)
+    points = []
+    for b in range(n_bins):
+        mask = idx == b
+        if mask.any():
+            points.append({"bin": [round(float(edges[b]), 2), round(float(edges[b + 1]), 2)],
+                           "predicted": round(float(p[mask].mean()), 4), "observed": round(float(y[mask].mean()), 4),
+                           "count": int(mask.sum())})
+    return {"points": points, "bin_counts": np.bincount(idx, minlength=n_bins).astype(int).tolist()}
 
 
 def pr_points(y: np.ndarray, s: np.ndarray, n: int = 60) -> list[dict]:
@@ -99,12 +113,7 @@ def evaluate(version: str) -> dict:
             **{name: round(float(flagged[name][idx].mean()), 4) for name in SYSTEMS},
         })
 
-    prob_true, prob_pred = calibration_curve(y, ml / 100, n_bins=10, strategy="uniform")
-    bin_counts = np.histogram(ml / 100, bins=np.linspace(0, 1, 11))[0]
-    calibration = {
-        "points": [{"predicted": round(float(p), 4), "observed": round(float(o), 4)} for p, o in zip(prob_pred, prob_true)],
-        "bin_counts": bin_counts.astype(int).tolist(),
-    }
+    calibration = calibration_bins(y, ml / 100)
 
     rng = np.random.default_rng(SEED)
     sample = rng.choice(len(X), size=min(30_000, len(X)), replace=False)

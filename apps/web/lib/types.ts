@@ -333,7 +333,7 @@ export interface Evaluation {
   matched_fpr: { target_fpr: number; systems: Record<SystemKey, ThresholdMetrics | null> };
   hybrid_beats_rules_on_recall_at_matched_fpr: boolean;
   per_scenario: ScenarioDetection[];
-  calibration: { points: { predicted: number; observed: number }[]; bin_counts: number[] };
+  calibration: { points: { bin: [number, number]; predicted: number; observed: number; count: number }[]; bin_counts: number[] };
   feature_importance: { feature: string; importance: number }[];
   notes: string[];
 }
