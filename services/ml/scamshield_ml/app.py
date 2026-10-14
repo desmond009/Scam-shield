@@ -71,6 +71,10 @@ class _State:
     def load(self) -> str | None:
         version = current_version()
         artifact = load_artifact(version) if version else None
+        if artifact is not None:  # warm-up so the first real request is not slow
+            x = np.asarray(artifact["reference"], dtype=float)
+            artifact["calibrated"].predict_proba(x[None, :])
+            top_contributions(artifact, x)
         with self.lock:
             self.artifact = artifact
         return version

@@ -1,8 +1,12 @@
 import { createApp } from "./app";
 import { config } from "./config";
 import { logger } from "./lib/logger";
+import { warmUpMl } from "./services/mlClient";
 
-const server = createApp().listen(config.PORT, () => logger.info({ port: config.PORT }, "api listening"));
+const server = createApp().listen(config.PORT, () => {
+  logger.info({ port: config.PORT }, "api listening");
+  void warmUpMl();
+});
 
 function shutdown(signal: string) {
   logger.info({ signal }, "shutting down");

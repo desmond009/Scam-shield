@@ -111,3 +111,6 @@ export type ContextRequest = z.infer<typeof contextRequestSchema>;
 export type ConfirmRequest = z.infer<typeof confirmRequestSchema>;
 export type ReviewAlertInput = z.infer<typeof reviewAlertSchema>;
 export type RuleUpdate = z.infer<typeof ruleUpdateSchema>;
+
+/** Re-exported so consumers (e.g. OpenAPI generation) patch the same Zod instance these schemas were built with. */
+export { z };

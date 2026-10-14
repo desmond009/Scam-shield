@@ -16,6 +16,8 @@ How it works
 4. Replay every event in time order, keeping the same state the API keeps (30-day baselines, velocity
    windows, payee sender sets, devices, reports), and compute features with the shared feature spec.
    This makes training features match what the API sees at decision time (no look-ahead).
+   Like the API, baselines exclude fraud-labelled payments (a scam must not become the user's "normal"),
+   and drained victims recover their balance a few days later.
 
 The first 30 simulated days are a burn-in so baselines are warm; only the following 90 days are written.
 """
@@ -58,8 +60,17 @@ PERSONAS = {
                    balance=(50_000, 400_000), income="monthly", income_amt=(15_000, 40_000), rent=0.0,
                    merchants=(6, 12), contacts=(3, 8), vulnerability=1.3),
 }
-SCAM_FEES = [499, 999, 1499, 1999, 2499, 4999, 9999, 14999, 19999, 24999, 49999]
-SCAM_ROUND = [500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 25000, 40000, 50000]
+
+
+def price_like(amount: float, r: random.Random) -> float:
+    """Real payments cluster on price points (499, 1999, 500, 2000) as well as exact amounts. Both legitimate and
+    scam amounts go through this, so the model cannot learn 'x99 means scam' from the generator."""
+    roll = r.random()
+    if amount >= 100 and roll < 0.3:
+        return max(49.0, round(amount, -2) - 1)
+    if amount >= 100 and roll < 0.55:
+        return float(round(amount, -2))
+    return float(round(amount, 0) if amount < 1000 or roll < 0.8 else round(amount, -1))
 
 
 def ts_at(day: int, hour: float, minute: float = 0, second: float = 0) -> int:
@@ -93,7 +104,7 @@ class User:
 @dataclass
 class Event:
     ts: int
-    kind: str  # txn | credit | fail | report
+    kind: str  # txn | credit | fail | report | restore
     user: str | None = None
     payee: str | None = None
     amount: float = 0.0
@@ -176,8 +187,7 @@ class Generator:
         amount = float(self.np.lognormal(math.log(p["median"] * payee_factor), p["sigma"]))
         if festival and self.rng.random() < 0.3:
             amount *= self.rng.uniform(2, 5)
-        amount = min(amount, 50_000)
-        return round(amount, 0) if amount < 1000 or self.rng.random() < 0.5 else round(amount, -1)
+        return price_like(min(amount, 50_000), self.rng)
 
     def _device(self, user: User, day: int) -> str:
         if user.second_device_day is not None and day >= user.second_device_day and self.rng.random() < 0.08:
@@ -217,7 +227,7 @@ class Generator:
                                              user.rent_amount, "legit_rent", device=self._device(user, day)))
                 if r.random() < 0.004:  # occasional big first purchase from a new merchant (electronics, travel)
                     self.events.append(Event(ts_at(day, r.uniform(10, 21)), "txn", user.uid, self._new_merchant(day, False),
-                                             round(r.uniform(8_000, 45_000), -2), "legit_new_merchant",
+                                             price_like(r.uniform(8_000, 45_000), r), "legit_new_merchant",
                                              device=self._device(user, day), context=self._legit_context()))
                 if user.persona == "shopkeeper" and r.random() < 0.15:  # supplier batch: several payments in minutes
                     start = ts_at(day, r.uniform(9, 19))
@@ -256,7 +266,7 @@ class Generator:
             contact = self._new_payee("c", ts_at(day, r.uniform(8, 12)))
             for k in range(r.randint(1, 4)):
                 d = day + r.randint(0, 3)
-                amount = round(float(self.np.lognormal(math.log(600), 0.9)), 0)
+                amount = price_like(float(self.np.lognormal(math.log(600), 0.9)), r)
                 self.events.append(Event(ts_at(d, r.uniform(12, 23)), "txn", user.uid, contact, min(amount, 30_000),
                                          "legit_new_contact", device=self._device(user, d),
                                          context=self._legit_context() if amount > 2000 else None))
@@ -303,12 +313,10 @@ class Generator:
             t = ts_at(day, hour)
             payee = recent[-1][1] if recent and r.random() < 0.3 and t - recent[-1][0] < 7 * DAY_MS else self._scammer(t, 0.4)
             recent.append((t, payee))
-            target = PERSONAS[v.persona]["median"] * r.uniform(3, 40)
-            menu = SCAM_FEES if r.random() < 0.5 else SCAM_ROUND
-            amount = min(min(menu, key=lambda f: abs(f - target)), MAX_AMOUNT)
+            amount = min(price_like(PERSONAS[v.persona]["median"] * r.uniform(3, 40), r), MAX_AMOUNT)
             for k in range(1 + (r.random() < 0.5) * r.randint(1, 2)):
                 ts = t + k * int(r.uniform(10, 90) * MIN_MS)
-                amt = amount if k == 0 else round(amount * r.uniform(0.8, 2.0), -1)
+                amt = amount if k == 0 else price_like(amount * r.uniform(0.8, 2.0), r)
                 self.events.append(Event(ts, "txn", v.uid, payee, min(amt, MAX_AMOUNT), "impersonation", f"imp{i}",
                                          device=self._device(v, day), context=self._fraud_context(0.55, 0.85, 0.25, 0.75)))
                 self._report_later(ts, payee)
@@ -323,7 +331,7 @@ class Generator:
             mule = self._new_payee("s", start - int(age * DAY_MS))
             span = r.uniform(6, 36) * HOUR_MS
             victims = r.sample(self.users, r.randint(10, 28))
-            fee = r.choice([499, 999, 1499, 2000, 2500, 5000])
+            fee = price_like(r.uniform(300, 6000), r)  # one 'registration fee' per mule, paid by every victim
             for j, v in enumerate(victims):
                 ts = start + int(span * j / len(victims) + r.uniform(0, 30) * MIN_MS)
                 for k in range(1 + (r.random() < 0.2)):
@@ -342,6 +350,7 @@ class Generator:
             payees = [self._scammer(t, 0.3) for _ in range(r.choice([1, 1, 2]))]
             parts = r.randint(4, 9)
             frac = r.uniform(0.85, 1.0)
+            self._restore_later(v, t, f"vel{i}")
             for k in range(parts):
                 ts = t + k * int(r.uniform(0.5, 2.0) * MIN_MS)
                 payee = payees[k % len(payees)]
@@ -361,11 +370,16 @@ class Generator:
                 self.events.append(Event(t - int(r.uniform(1, 12) * MIN_MS) + k * 15_000, "fail", v.uid))
             payee = self._scammer(t, 0.3)
             device = f"atk-{i:04d}"
+            self._restore_later(v, t, f"ato{i}")
             for k in range(r.randint(1, 3)):
                 ts = t + k * int(r.uniform(1, 6) * MIN_MS)
                 rule = ("drain", r.uniform(0.7, 0.95)) if k == 0 else ("drain", r.uniform(0.4, 0.9))
                 self.events.append(Event(ts, "txn", v.uid, payee, 0, "takeover", f"ato{i}", rule, device=device))
                 self._report_later(ts, payee, 0.5)
+
+    def _restore_later(self, v: User, t: int, incident: str):
+        """Victims of a drain move savings back in (or get a reversal) 1-3 days later."""
+        self.events.append(Event(t + int(self.rng.uniform(1, 3) * DAY_MS), "restore", v.uid, incident=incident))
 
     def spurious_reports(self):
         for upi in self.rng.sample(self.merchant_pool, 5):
@@ -389,6 +403,7 @@ class Replayer:
         self.payee_sender_counts: dict[str, Counter] = {}
         self.reports: Counter = Counter()
         self.split_base: dict[str, float] = {}
+        self.incident_spent: Counter = Counter()
 
     def _history(self, uid: str, now: int) -> dict:
         w, s, mq = self.window[uid], self.sums[uid], self.maxq[uid]
@@ -438,6 +453,8 @@ class Replayer:
                 self.fails[e.user].append(e.ts)
             elif e.kind == "report":
                 self.reports[e.payee] += 1
+            elif e.kind == "restore":
+                self.users[e.user].balance += self.incident_spent[e.incident]
             else:
                 row = self._payment(e)
                 if e.ts >= burn_in_end:
@@ -475,6 +492,8 @@ class Replayer:
             "context": e.context,
         }
         features = compute_features(inp)
+        if e.incident:
+            self.incident_spent[e.incident] += amount
         self._commit(uid, e, amount, now)
         return {"txn_id": f"t{now}{uid}", "ts": now, "user_id": uid, "persona": user.persona, "payee_upi": e.payee,
                 "balance_before": round(inp["balance"], 2), "device": e.device, "scenario": e.scenario,
@@ -484,6 +503,13 @@ class Replayer:
     def _commit(self, uid: str, e: Event, amount: float, now: int):
         user = self.users[uid]
         user.balance -= amount
+        self.recent[uid].append((now, e.payee, amount))
+        self.known_payees[uid].add(e.payee)
+        self.devices[uid].add(e.device)
+        self.payee_senders[e.payee].append((now, uid))
+        self.payee_sender_counts[e.payee][uid] += 1
+        if not e.scenario.startswith("legit"):
+            return  # fraud-labelled payments are excluded from the behavioural baseline
         hour = ist_hour(now)
         self.window[uid].append((now, amount, hour))
         s = self.sums[uid]
@@ -495,11 +521,6 @@ class Replayer:
         while mq and mq[-1][1] <= amount:
             mq.pop()
         mq.append((now, amount))
-        self.recent[uid].append((now, e.payee, amount))
-        self.known_payees[uid].add(e.payee)
-        self.devices[uid].add(e.device)
-        self.payee_senders[e.payee].append((now, uid))
-        self.payee_sender_counts[e.payee][uid] += 1
 
 
 def generate(seed: int = 42) -> pd.DataFrame:

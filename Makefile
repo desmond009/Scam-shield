@@ -1,8 +1,6 @@
 # ScamShield developer commands. Run `make help` for a list.
 SHELL := /bin/bash
 COMPOSE := docker compose
-LOCAL_DB := postgresql://scamshield:scamshield_dev_pw@localhost:5433/scamshield
-LOCAL_REDIS := redis://localhost:6380
 
 .PHONY: help env demo up down reset logs ps install test test-node test-ml e2e loadtest train
 
@@ -39,14 +37,14 @@ install: ## Install Node and Python dependencies for local development
 
 test: test-node test-ml ## Run all unit/integration tests (needs postgres + redis from compose)
 
-test-node: env
-	$(COMPOSE) up -d postgres redis
+test-node: env ## Node tests (the API suite recreates its own scamshield_test database)
+	$(COMPOSE) up -d --wait postgres redis
 	npm run build:shared
-	DATABASE_URL=$(LOCAL_DB) npx -w @scamshield/api prisma migrate deploy
-	DATABASE_URL=$(LOCAL_DB) REDIS_URL=$(LOCAL_REDIS) npm test
+	npx -w @scamshield/api prisma generate >/dev/null
+	npm test
 
-test-ml:
-	cd services/ml && .venv/bin/python -m pytest -q
+test-ml: ## Python tests (feature parity + scoring contract); trains a local model first if needed
+	cd services/ml && .venv/bin/python -m scamshield_ml.pipeline && .venv/bin/python -m pytest -q -W ignore
 
 e2e: ## Playwright end-to-end test against the running stack (make demo first)
 	npx -w @scamshield/web playwright test
