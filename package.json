@@ -1,0 +1,28 @@
+{
+  "name": "scamshield",
+  "private": true,
+  "version": "1.0.0",
+  "description": "ScamShield - pre-transaction payment scam detection for UPI-style wallets (college mini project)",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "build:shared": "npm run build -w @scamshield/shared",
+    "test": "npm run test -w @scamshield/shared && npm run test -w @scamshield/api",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@prisma/client@6.1.0": true,
+    "prisma@6.1.0": true,
+    "@prisma/engines@6.1.0": true,
+    "esbuild@0.23.1": true,
+    "esbuild@0.21.5": true,
+    "msgpackr-extract@3.0.4": true,
+    "sharp@0.33.5": true
+  }
+}

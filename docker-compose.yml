@@ -1,0 +1,79 @@
+# ScamShield local stack. Usage: cp .env.example .env && docker compose up --build
+name: scamshield
+
+x-node-env: &node-env
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    REDIS_URL: redis://redis:6379
+    ML_URL: http://ml:8000
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    env_file: .env
+    ports: ["5433:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6380:6379"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  ml:
+    build: { context: ., dockerfile: services/ml/Dockerfile }
+    ports: ["8000:8000"]
+    volumes: [mlmodels:/app/services/ml/models, mldata:/app/services/ml/data]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      # First boot generates synthetic data and trains the model before serving.
+      start_period: 300s
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    <<: *node-env
+    ports: ["4000:4000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4000/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 60s
+
+  worker:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    <<: *node-env
+    command: ["node", "dist/src/worker.js"]
+    depends_on:
+      api: { condition: service_healthy }
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    ports: ["3000:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  mlmodels:
+  mldata:

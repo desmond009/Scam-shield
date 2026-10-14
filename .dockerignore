@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.next
+**/.venv
+**/__pycache__
+services/ml/data
+services/ml/models
+.git
+**/playwright-report
+**/test-results
+.env

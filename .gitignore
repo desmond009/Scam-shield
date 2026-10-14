@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+.env
+*.log
+coverage/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+services/ml/data/
+services/ml/models/
+!services/ml/models/.gitkeep
+playwright-report/
+test-results/
+.DS_Store
+*.tsbuildinfo

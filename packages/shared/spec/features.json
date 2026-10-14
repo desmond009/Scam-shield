@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "timezoneOffsetMinutes": 330,
+  "nightStartHour": 23,
+  "nightEndHour": 6,
+  "baselineWindowDays": 30,
+  "minHistoryForStats": 3,
+  "sameAmountTolerance": 0.2,
+  "features": [
+    { "name": "amount", "description": "Payment amount in rupees." },
+    { "name": "amount_zscore_vs_user_30d", "description": "How many standard deviations the amount is above the user's 30-day mean (0 with fewer than 3 past payments; std floored at max(10% of mean, 50); clamped to [-5, 20])." },
+    { "name": "amount_to_user_max_ratio", "description": "Amount divided by the user's largest payment in the last 30 days (1 with no history; clamped to [0, 50])." },
+    { "name": "amount_to_balance_ratio", "description": "Amount divided by the balance before the payment (clamped to [0, 10])." },
+    { "name": "is_new_payee_for_user", "description": "1 if the user has never completed a payment to this UPI ID." },
+    { "name": "payee_age_days", "description": "Days since the payee was first seen on the platform (0 if never seen; capped at 3650)." },
+    { "name": "payee_distinct_senders_24h", "description": "Distinct other users who paid this payee in the last 24 hours." },
+    { "name": "payee_report_count", "description": "Number of user reports filed against this payee." },
+    { "name": "user_txn_count_10min", "description": "Payments completed by the user in the previous 10 minutes." },
+    { "name": "user_txn_count_1h", "description": "Payments completed by the user in the previous hour." },
+    { "name": "same_amount_repeat_count_1h", "description": "Payments by the user to the same payee in the previous hour within 20% of this amount." },
+    { "name": "hour_of_day", "description": "Hour of day in IST (0-23)." },
+    { "name": "hour_deviation_from_user_norm", "description": "Circular distance in hours between this hour and the user's average payment hour (0 with fewer than 3 past payments; 0-12)." },
+    { "name": "is_night", "description": "1 if the IST hour is 23:00-05:59." },
+    { "name": "account_age_days", "description": "Days since the user account was created." },
+    { "name": "is_new_device", "description": "1 if the device has never been used for a completed payment by this user." },
+    { "name": "failed_attempts_15min", "description": "Failed logins and failed recipient verifications in the last 15 minutes." },
+    { "name": "ctx_pressure", "description": "Questionnaire: someone called or messaged asking to pay urgently (0 until answered)." },
+    { "name": "ctx_otp_or_app", "description": "Questionnaire: asked to share an OTP or install an app (0 until answered)." },
+    { "name": "ctx_unknown_recipient", "description": "Questionnaire: the user does not personally know the recipient (0 until answered)." }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "rules": [
+    { "code": "NEW_PAYEE", "enabled": true, "weight": 1, "params": { "points": 15 } },
+    { "code": "AMOUNT_SPIKE", "enabled": true, "weight": 1, "params": { "points": 25, "minZscore": 3, "minMaxRatio": 2 } },
+    { "code": "DRAIN_BALANCE", "enabled": true, "weight": 1, "params": { "points": 20, "minBalanceRatio": 0.8 } },
+    { "code": "VELOCITY_BURST", "enabled": true, "weight": 1, "params": { "points": 25, "min10min": 3, "min1h": 6 } },
+    { "code": "SPLIT_PAYMENTS", "enabled": true, "weight": 1, "params": { "points": 20, "minRepeats": 2 } },
+    { "code": "ODD_HOUR", "enabled": true, "weight": 1, "params": { "points": 10, "minHourDeviation": 4 } },
+    { "code": "MULE_PATTERN", "enabled": true, "weight": 1, "params": { "points": 30, "minDistinctSenders": 5, "maxPayeeAgeDays": 30 } },
+    { "code": "REPORTED_PAYEE", "enabled": true, "weight": 1, "params": { "points": 25, "pointsPerExtraReport": 5, "maxPoints": 40 } },
+    { "code": "NEW_DEVICE", "enabled": true, "weight": 1, "params": { "points": 15 } },
+    { "code": "REPEATED_FAILED_ATTEMPTS", "enabled": true, "weight": 1, "params": { "points": 20, "minFailures": 3 } },
+    { "code": "CONTEXT_PRESSURE", "enabled": true, "weight": 1, "params": { "pressurePoints": 25, "otpPoints": 35, "unknownRecipientPoints": 10 } }
+  ],
+  "thresholds": { "ruleWeight": 0.4, "mlWeight": 0.6, "mediumThreshold": 35, "highThreshold": 70 }
+}

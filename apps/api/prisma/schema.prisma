@@ -1,0 +1,210 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ANALYST
+  ADMIN
+}
+
+enum TxnStatus {
+  PENDING
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
+enum TxnLabel {
+  FRAUD
+  SAFE
+  UNKNOWN
+}
+
+enum Band {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AlertStatus {
+  OPEN
+  REVIEWED
+}
+
+enum AlertOutcome {
+  FRAUD
+  SAFE
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  upiId        String   @unique
+  /// Rupees, two decimal places. Synthetic demo money only.
+  balance      Decimal  @db.Decimal(12, 2)
+  createdAt    DateTime @default(now())
+  deviceHash   String?
+
+  transactions  Transaction[]
+  ledgerEntries LedgerEntry[]
+  reports       PayeeReport[]
+  alertsHandled Alert[]       @relation("AlertAnalyst")
+  auditLogs     AuditLog[]
+}
+
+model Payee {
+  id              String    @id @default(uuid())
+  upiId           String    @unique
+  displayName     String
+  firstSeenAt     DateTime  @default(now())
+  reportCount     Int       @default(0)
+  /// 0 (trusted) to 100 (high risk); recomputed by the worker.
+  reputationScore Float     @default(0)
+  /// Set when an analyst confirms a FRAUD alert on a payment to this payee (hard override).
+  confirmedFraudAt DateTime?
+}
+
+model Transaction {
+  id             String     @id @default(uuid())
+  userId         String
+  payeeUpiId     String
+  amount         Decimal    @db.Decimal(12, 2)
+  note           String?
+  status         TxnStatus  @default(PENDING)
+  idempotencyKey String?
+  createdAt      DateTime   @default(now())
+  completedAt    DateTime?
+  deviceHash     String?
+  ip             String?
+  isSynthetic    Boolean    @default(false)
+  label          TxnLabel   @default(UNKNOWN)
+
+  user          User          @relation(fields: [userId], references: [id])
+  decision      RiskDecision?
+  ledgerEntries LedgerEntry[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([payeeUpiId, createdAt])
+  @@index([status])
+}
+
+/// Double-entry style record of every balance movement.
+model LedgerEntry {
+  id            String   @id @default(uuid())
+  userId        String
+  transactionId String
+  /// Negative for debits, positive for credits.
+  amount        Decimal  @db.Decimal(12, 2)
+  balanceAfter  Decimal  @db.Decimal(12, 2)
+  createdAt     DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model RiskDecision {
+  id              String   @id @default(uuid())
+  transactionId   String   @unique
+  ruleScore       Float
+  mlScore         Float?
+  finalScore      Float
+  /// Final score before questionnaire answers were applied (null if never re-scored).
+  preContextScore Float?
+  band            Band
+  blocked         Boolean  @default(false)
+  reasons         Json
+  features        Json
+  mlTopFeatures   Json?
+  degraded        Boolean  @default(false)
+  modelVersion    String?
+  latencyMs       Float
+  contextAnswers  Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  alert       Alert?
+
+  @@index([band, createdAt])
+  @@index([createdAt])
+}
+
+model Alert {
+  id         String        @id @default(uuid())
+  decisionId String        @unique
+  status     AlertStatus   @default(OPEN)
+  analystId  String?
+  outcome    AlertOutcome?
+  notes      String        @default("")
+  createdAt  DateTime      @default(now())
+  reviewedAt DateTime?
+
+  decision RiskDecision @relation(fields: [decisionId], references: [id])
+  analyst  User?        @relation("AlertAnalyst", fields: [analystId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+model RuleConfig {
+  key       String   @id
+  enabled   Boolean  @default(true)
+  weight    Float    @default(1)
+  params    Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+/// Runtime-editable settings such as blend weights and band thresholds.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+model PayeeReport {
+  id         String   @id @default(uuid())
+  reporterId String
+  payeeUpiId String
+  reason     String
+  createdAt  DateTime @default(now())
+
+  reporter User @relation(fields: [reporterId], references: [id])
+
+  @@unique([reporterId, payeeUpiId])
+  @@index([payeeUpiId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String
+  action    String
+  entity    String
+  meta      Json
+  createdAt DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([createdAt])
+}
+
+model ModelRun {
+  id        String   @id @default(uuid())
+  version   String   @unique
+  metrics   Json
+  trainedAt DateTime
+  active    Boolean  @default(false)
+}
