@@ -5,6 +5,7 @@ import {
   summarize,
   type Band,
   type Reason,
+  type Thresholds,
 } from "@scamshield/shared";
 import type { RiskDecision, Transaction } from "@prisma/client";
 
@@ -13,7 +14,12 @@ export function cooldownEndsAt(decision: Pick<RiskDecision, "band" | "updatedAt"
 }
 
 /** What the payer's app receives: score, band, plain-language top reasons and what the UI must do next. */
-export function decisionView(txn: Transaction, decision: RiskDecision, checkToken?: string) {
+export function decisionView(
+  txn: Transaction,
+  decision: RiskDecision,
+  checkToken?: string,
+  thresholds?: Pick<Thresholds, "mediumThreshold" | "highThreshold">,
+) {
   const reasons = decision.reasons as unknown as Reason[];
   const band = decision.band as Band;
   const contextAnswered = decision.contextAnswers !== null;
@@ -41,6 +47,8 @@ export function decisionView(txn: Transaction, decision: RiskDecision, checkToke
     cooldownSeconds: band === "HIGH" ? HIGH_RISK_COOLDOWN_SECONDS : 0,
     cooldownEndsAt: cooldownEndsAt(decision)?.toISOString() ?? null,
     checkToken: pending && !decision.blocked ? checkToken : undefined,
+    /** Band cut-offs in force, so the client's risk meter draws the same boundaries the engine used. */
+    thresholds: thresholds ? { medium: thresholds.mediumThreshold, high: thresholds.highThreshold } : undefined,
   };
 }
 

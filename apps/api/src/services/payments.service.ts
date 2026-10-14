@@ -99,7 +99,7 @@ export async function checkPayment(userId: string, body: CheckRequest, meta: Req
     const decision = txn.decision!;
     await enqueue({ name: "decision", data: { decisionId: decision.id } });
     recordDecisionMetrics(decision.band, performance.now() - started);
-    return decisionView(txn, decision, tokenFor(userId, txn));
+    return decisionView(txn, decision, tokenFor(userId, txn), (await getRiskConfig()).thresholds);
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       throw conflict("A payment with this Idempotency-Key already exists");
@@ -146,7 +146,7 @@ export async function answerContext(userId: string, transactionId: string, answe
     },
   });
   await enqueue({ name: "decision", data: { decisionId: decision.id } });
-  return decisionView(txn, updated, tokenFor(userId, txn));
+  return decisionView(txn, updated, tokenFor(userId, txn), thresholds);
 }
 
 /** Phase 2: move the money. Requires a valid check token; HIGH band also needs cooldown + retyped UPI ID. */
