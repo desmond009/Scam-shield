@@ -13,22 +13,29 @@
 <p>The SOM is small on purpose. Big banks and the large UPI apps build this in-house or buy from established vendors. Our first customers would be smaller players without a data science team. Regulation also helps here: RBI's 2025 authentication directions expect risk-based checks on top of two-factor authentication from April 2026 <c>rbi_auth</c>, and RBI's own MuleHunter.AI shows that banks are willing to use AI for fraud <c>mulehunter, mulehunter_mou</c>.</p>
 
 <h2>Existing Solutions</h2>
-<p>Banks already run fraud risk management platforms such as FICO Falcon, Clari5, SAS or Feedzai. These monitor transactions in real time, but they are expensive, aimed at large banks, and usually hold or decline a payment quietly without telling the payer why. MuleHunter.AI, built by RBI Innovation Hub and used by about two dozen banks, finds mule accounts on the receiving side <c>mulehunter, mulehunter_mou</c>. The Department of Telecommunications' Financial Fraud Risk Indicator rates mobile numbers by fraud risk, and some payment apps use it to block payments <c>dot_fri</c>. Sanchar Saathi and Chakshu let citizens report fraud calls, which has led to lakhs of numbers being disconnected <c>sancharsaathi</c>. The 1930 helpline and CFCFRMS help freeze money after a complaint <c>cfcfrms_saved</c>. The big UPI apps show some warnings of their own, but how these work is not public. Caller ID apps like Truecaller flag spam calls but never see the payment. Abroad, the UK has made banks reimburse APP fraud victims since October 2024, with the cost split between the sending and receiving banks <c>uk_psr</c>, which gives banks a strong reason to stop scams before payment.</p>
+<p>We grouped the existing solutions by <i>where</i> they act: inside the bank, on the receiving account, on the phone number, after the fraud, or in the payer's app. This matters for us because ScamShield acts at one specific point, in the payer's app just before the money leaves. For each one we only describe what is publicly documented, and we mark anything we could not confirm.</p>
+<p><b>Bank fraud risk management (FRM) platforms.</b> Commercial products such as FICO Falcon, Clari5, SAS and Feedzai are sold to banks for monitoring transactions. We did not have access to their product documentation, so in Table 4.2 we only credit them with general capabilities that this kind of product is known for (real-time monitoring, case management). We mark payer-facing features as not public.</p>
+<p><b>MuleHunter.AI.</b> This is an RBI Innovation Hub model for spotting mule accounts. According to an RTI reply reported by MediaNama, about 23 banks were using it by December 2025 <c>mulehunter</c>, and I4C signed an agreement with RBIH on it in May 2026 <c>mulehunter_mou</c>. It looks at the receiving account and not at the payer's decision.</p>
+<p><b>DoT Financial Fraud Risk Indicator (FRI).</b> Launched in May 2025, it rates mobile numbers as medium, high or very high risk, and the report we cite says at least one payment app uses it to stop payments to very high risk numbers <c>dot_fri</c>. It gives one signal, the phone number.</p>
+<p><b>Sanchar Saathi and Chakshu.</b> These are DoT services where citizens report suspected fraud calls and messages, which has led to lakhs of connections being disconnected <c>sancharsaathi</c>. They work at the telecom level.</p>
+<p><b>1930 helpline and CFCFRMS.</b> Victims report fraud and the money still in the chain can be frozen, with more than ₹11,158 crore saved by June 2026 <c>cfcfrms_saved</c>. This happens after the payment.</p>
+<p><b>Warnings inside UPI apps and caller ID apps.</b> The large UPI apps show some warnings of their own, and caller ID apps flag spam calls. We could not find public technical descriptions of how either decides when to warn, so we have not made claims about their features.</p>
+<p><b>International example.</b> In the UK, since October 2024 banks have had to reimburse most APP fraud victims, with the cost shared between the sending and receiving banks <c>uk_psr</c>. We include it because it shows why banks elsewhere are investing in checks before payment.</p>
 
 <h2>Feature Comparison</h2>
+<p>Table 4.2 compares these options on the criteria that matter for our problem. The ScamShield column describes our prototype. For the others, ✓ or ◐ means the feature is described in the source we cite or is a standard part of that type of product, ✗ means it clearly does not apply (for example, a helpline cannot act before payment), and ? means we could not find a public description. This is our own assessment from public information, not a vendor-verified comparison.</p>
 <table class="keep">
-  <caption>Feature comparison (✓ yes, ◐ partly, ✗ no, ? not public)</caption>
-  <tr><th>Feature</th><th>Scam-Shield</th><th>Bank FRM</th><th>Mule-Hunter</th><th>DoT FRI</th><th>App warnings</th><th>1930</th></tr>
-  <tr><td>Acts before money moves</td><td>✓</td><td>✓</td><td>◐</td><td>✓</td><td>✓</td><td>✗</td></tr>
-  <tr><td>Explains the risk to the payer</td><td>✓</td><td>✗</td><td>✗</td><td>◐</td><td>◐</td><td>✗</td></tr>
-  <tr><td>Friction depends on risk level</td><td>✓</td><td>◐</td><td>✗</td><td>◐</td><td>?</td><td>✗</td></tr>
-  <tr><td>Asks the payer about context</td><td>✓</td><td>✗</td><td>✗</td><td>✗</td><td>?</td><td>✗</td></tr>
-  <tr><td>Signal across many payers (mule)</td><td>✓</td><td>◐</td><td>✓</td><td>◐</td><td>?</td><td>◐</td></tr>
-  <tr><td>Analyst console and feedback</td><td>✓</td><td>✓</td><td>?</td><td>✗</td><td>✗</td><td>◐</td></tr>
-  <tr><td>Affordable for small institutions</td><td>✓</td><td>✗</td><td>◐</td><td>✓</td><td>✗</td><td>✓</td></tr>
-  <tr><td>Proven on real fraud data</td><td>✗</td><td>✓</td><td>✓</td><td>✓</td><td>?</td><td>n/a</td></tr>
+  <caption>Comparison against our criteria (✓ yes, ◐ partly, ✗ no, ? not public)</caption>
+  <tr><th>Criterion</th><th>Scam-Shield</th><th>Bank FRM</th><th>Mule-Hunter</th><th>DoT FRI</th><th>1930 / CFCFRMS</th></tr>
+  <tr><td>Acts before the money moves</td><td>✓</td><td>✓</td><td>◐</td><td>◐</td><td>✗</td></tr>
+  <tr><td>Explains the risk to the payer</td><td>✓</td><td>?</td><td>✗</td><td>?</td><td>✗</td></tr>
+  <tr><td>Friction depends on risk level</td><td>✓</td><td>?</td><td>✗</td><td>?</td><td>✗</td></tr>
+  <tr><td>Asks the payer about the situation</td><td>✓</td><td>?</td><td>✗</td><td>✗</td><td>✗</td></tr>
+  <tr><td>Uses signals across many payers</td><td>✓</td><td>?</td><td>✓</td><td>✓</td><td>◐</td></tr>
+  <tr><td>Analyst review and feedback</td><td>✓</td><td>✓</td><td>?</td><td>?</td><td>◐</td></tr>
+  <tr><td>Proven on real fraud data</td><td>✗</td><td>✓</td><td>✓</td><td>✓</td><td>n/a</td></tr>
 </table>
-<p>The last row is the important one. Existing systems have been tested on real fraud, and ours has not. Where we are different is the payer side of the problem.</p>
+<p>Two things come out of this. First, the payer-facing rows (explaining, proportional friction, asking about the situation) are the ones where we either found nothing public or the tool simply does not work at that point. That is the gap ScamShield is built for. Second, the last row is a real weakness. The other systems are working on real fraud, and ours has only been tested on synthetic data. So we see ScamShield as something that adds to these systems, for example by using FRI or MuleHunter-style signals as inputs, rather than replacing them.</p>
 
 <h2>SWOT Analysis</h2>
 <div class="grid2 swot">

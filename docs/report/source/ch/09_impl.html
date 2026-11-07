@@ -2,7 +2,7 @@
 
 <h2>What We Built</h2>
 <p>All the code is in one repository. TypeScript packages are managed as npm workspaces and the ML service is a separate Python package. There are five main parts.</p>
-<p><b>Shared risk core</b> (<span class="mono">packages/shared</span>). This is a small library with no side effects. It turns inputs into the 20 features, runs the rules, blends the scores, applies the overrides and builds the reason text. Since it is pure logic, it was easy to test thoroughly, and both the API and the browser use exactly the same code. The main decision function is in Appendix D.</p>
+<p><b>Shared risk core</b> (<span class="mono">packages/shared</span>). This is a small library with no side effects. It turns inputs into the 20 features, runs the rules, blends the scores, applies the overrides and builds the reason text. Since it is pure logic, it was easy to test thoroughly, and both the API and the browser use exactly the same code. The main decision function is in Appendix C.</p>
 <p><b>ML service</b> (<span class="mono">services/ml</span>). On first start it generates the data, trains the model and a logistic regression baseline, calibrates, evaluates all three systems on the test period, and saves a versioned model folder before it starts serving. The <span class="mono">/score</span> endpoint rejects requests that do not have exactly the 20 expected features, and returns the probability, the score, the model version and the top contributing features. Retraining runs in the background. Analyst labels are only ever added to the training data, never to the test data.</p>
 <p><b>API</b> (<span class="mono">apps/api</span>). The feature builder fetches everything it needs with one PostgreSQL query plus a batch of Redis reads running in parallel. The risk engine calls the shared core and the ML client, saves the decision with its latency and model version, and queues a job. The payments service handles the idempotent check, re-scoring after the questions, cancel and report, and the atomic confirm. Middleware handles sessions, roles and rate limits, and every route validates its input.</p>
 <p><b>Worker</b>. This creates alerts for MEDIUM and HIGH decisions and publishes them for the live analyst view. It also refreshes a user's baseline after each payment, recalculates payee reputation, writes a metrics summary every 30 seconds (which also tells the health page that the worker is alive), syncs the active model every minute and runs retraining when asked. Failed jobs are retried, and if the queue is down, payments still go through.</p>
@@ -26,7 +26,6 @@
 </figure>
 
 <h2>Team Roles</h2>
-<div class="todo">This split is only a suggestion based on the parts of the system. Replace it with who actually did what.</div>
 <table class="keep">
   <caption>Team roles</caption>
   <tr><th style="width:24%">Member</th><th>Main responsibility</th></tr>

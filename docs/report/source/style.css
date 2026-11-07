@@ -76,3 +76,8 @@ pre.code { font-family: Menlo, monospace; font-size: 8.3pt; line-height: 1.35; b
 .toc-row .tt { flex: 0 1 auto; }
 
 figure.tall .mermaid svg { max-height: 215mm; }
+
+.sigs { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12%; row-gap: 22pt; margin-top: 30pt; }
+.sg .si { height: 20mm; display: flex; align-items: flex-end; }
+.sg .si img { max-height: 19mm; max-width: 100%; }
+.sg .ln { border-top: 0.8pt solid #333; padding-top: 4pt; font-size: 11pt; text-align: left; }

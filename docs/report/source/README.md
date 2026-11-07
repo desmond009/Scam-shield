@@ -5,7 +5,7 @@
 - `ch/*.html`: the chapters, in file-name order. `<c>key</c>` cites a reference from `refs.py`. Chapters, sections, figures, tables and citations are numbered automatically.
 - `front.html`: title page, certificate, declaration, acknowledgement, abstract and abbreviations. The table of contents and the lists of figures and tables are generated.
 - `fig/`: charts (from `charts*.py`, which read `services/ml/models/gbm-20261014-074524/evaluation.json`) and cropped screenshots (from `crop.py`).
-- Boxes marked **TEAM TO COMPLETE** (`<div class="todo">`) need real data before submission: the survey results, the UAT feedback and the team roles.
+- There are no placeholder boxes left. Survey results and user testing are described as not included; add them to ch/03 and ch/10 if you collect them.
 
 ## Rebuild
 
