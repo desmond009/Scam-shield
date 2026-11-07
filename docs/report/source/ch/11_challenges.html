@@ -1,32 +1,25 @@
 <h1>Challenges and Limitations</h1>
 
-<h2>Challenges Faced and How We Solved Them</h2>
-<table>
-  <caption>Development challenges and their resolution</caption>
-  <tr><th style="width:24%">Challenge</th><th style="width:38%">What happened</th><th>How we solved it</th></tr>
-  <tr><td>Results that were too good</td><td>The first generator produced PR-AUC ≈ 0.99. Feature importances showed the model had memorised exact scam amounts (scams used a fixed menu such as ₹4,999, while legitimate amounts never ended in 99) and that every scammer account was days old while almost every legitimate payee was years old.</td><td>We treated this as a bug, not a result. Legitimate and scam amounts now pass through the same price-point logic; legitimate young payees (new shops, friends joining, festival stalls) and older bought scam accounts were added. PR-AUC fell to a believable ≈ 0.95.</td></tr>
-  <tr><td>Polluted baselines</td><td>Each simulated user was hit by many scams, and scam amounts entered the user's baseline, so a normal ₹500 payment later looked extreme.</td><td>Fraud-labelled payments are excluded from baselines in both the generator and the API, and drained balances are restored after 1–3 days.</td></tr>
-  <tr><td>Training/serving skew</td><td>Features are computed in Python for training and in TypeScript for serving; tiny differences (rounding, hour boundaries in IST) would silently corrupt the model's inputs.</td><td>A shared JSON specification, mirrored JavaScript rounding in Python, and 300 committed parity cases that the TypeScript tests must reproduce exactly.</td></tr>
-  <tr><td>ML latency under load</td><td>Single-row predictions were slow under concurrency because of OpenMP thread start-up, tripping the circuit breaker in the first load test.</td><td><span class="mono">OMP_NUM_THREADS=1</span>: ML throughput rose from 47 to 154 req/s; the breaker stayed closed. The fallback worked as designed even before the fix.</td></tr>
-  <tr><td>Double spending and replays</td><td>Double taps, network retries and concurrent confirms could debit twice.</td><td>Idempotency keys with SET NX; check tokens bound to amount and payee; conditional SQL updates inside one transaction; tested with five concurrent confirms.</td></tr>
-  <tr><td>Questionnaire abuse</td><td>A coached victim could answer “no” to everything to make a warning disappear.</td><td>Answers can only raise the score; the OTP answer is a hard override.</td></tr>
-  <tr><td>Explaining a tree ensemble</td><td>SHAP would have added a heavy dependency and latency.</td><td>Occlusion explanations: one batched prediction of 21 rows, model-agnostic and easy to explain.</td></tr>
-  <tr><td>Demo realism without disturbing state</td><td>Repeated demo runs changed balances and counters, making later runs behave differently.</td><td>Dedicated simulator personas whose Redis state and balances are reset before each run; seeded one-click demo logins bound to a “registered device”.</td></tr>
-  <tr><td>Time</td><td>The core system had to be built in a one-week sprint.</td><td>Phased plan with the riskiest work (data, model, evaluation) first; a fixed definition of done; simple, well-understood components.</td></tr>
-</table>
+<h2>Problems We Faced</h2>
+<p><b>Results that were too good.</b> The first version of our data generator gave a PR-AUC of about 0.99, which was suspicious. Feature importance showed two problems. Scam amounts came from a short fixed list (₹4,999 and similar) and genuine amounts never ended in 99, so the model had simply memorised amounts. Also, every scam account was a few days old while almost every genuine payee was years old, so "young payee" meant scam. We fixed the generator: genuine and scam amounts now use the same price logic, and we added young genuine payees (new shops, friends joining, festival stalls) and old bought scam accounts. PR-AUC came down to about 0.95, which is much more believable.</p>
+<p><b>Polluted baselines.</b> Each simulated user was being hit by many scams, and those scam amounts became part of their "normal" history, so later an ordinary ₹500 payment looked extreme. We now leave fraud-labelled payments out of baselines in both the generator and the API, and give drained balances back after a few days.</p>
+<p><b>Python and TypeScript giving different answers.</b> Features are computed in Python for training and TypeScript for serving. Small differences in rounding or in how IST hours are worked out would quietly feed the model wrong inputs. We moved the definitions into one JSON spec, copied JavaScript's rounding into the Python code, and added the 300-case parity test.</p>
+<p><b>Slow ML under load.</b> This was the thread pool issue described in Section 10.4, fixed with one environment variable. It was good to see that the fallback to rules worked as designed even before the fix.</p>
+<p><b>Double taps and retries.</b> A double tap or a network retry could have charged twice. Idempotency keys, a token tied to amount and payee, and conditional SQL updates in one transaction fixed this, and we tested it with five confirms at the same time.</p>
+<p><b>Repeatable demos.</b> Every demo run changed balances and counters, so the next run behaved differently. We gave the simulator its own set of accounts and reset their state before each run.</p>
 
 <h2>Current Limitations</h2>
-<ol>
-  <li><b>Synthetic data only.</b> All metrics show that the method works on a realistic simulation; they say nothing about real-world fraud rates. Real scam patterns are more varied, and the simulated fraud rate (≈ 2.4 %) is far higher than real UPI traffic, so precision on real traffic would be lower.</li>
-  <li><b>No adversary.</b> Simulated scam behaviour is stationary; real scammers adapt to whatever gets blocked.</li>
-  <li><b>No real payment integration.</b> There is no connection to NPCI, a bank or real money; the ledger is internal.</li>
-  <li><b>The questionnaire depends on honesty.</b> A coached victim may answer “no” to every question; answers can only raise risk, but they cannot catch a lie.</li>
-  <li><b>Weak on legitimate first-time payments.</b> New contacts and new merchants are flagged at 20–30 % in small samples — the hardest legitimate cases.</li>
-  <li><b>Calibration drift.</b> The model is over-confident in the 30–60 % range on the holdout's festival period.</li>
-  <li><b>Overrides not evaluated offline.</b> The confirmed-fraud-payee override and analyst labels are not exercised in offline evaluation, because the synthetic data has no analyst labels.</li>
-  <li><b>Single-instance deployment.</b> One API, one worker and one ML process; tested to about 20 req/s on a laptop.</li>
-  <li><b>Reports can be gamed with many accounts.</b> Each account can report a payee once, but fake accounts are not prevented; analyst review remains the authority for blocking.</li>
-  <li><b>Approximate baselines.</b> Baselines refresh asynchronously, so a burst of payments may be scored against a baseline a few hundred milliseconds old (velocity counters are synchronous).</li>
-  <li><b>Not production-certified.</b> No penetration test, PCI/RBI review, HA deployment or key rotation; secrets are demo defaults.</li>
-  <li><b>No primary user validation yet.</b> The design is grounded in published research; structured user-acceptance results are pending (Section 10.5).</li>
-</ol>
+<ul>
+  <li>Everything is tested on synthetic data. The numbers show that the method works on a realistic simulation, not how it would do on real UPI traffic. The fraud rate in our data (about 2.4 %) is much higher than real life, so real precision would be lower.</li>
+  <li>Our simulated scammers do not adapt. Real ones change tactics when they get blocked.</li>
+  <li>There is no connection to NPCI, a bank or real money.</li>
+  <li>The questions depend on honesty. A coached victim can say "no" to everything. The score will not go down, but the lie is not caught either.</li>
+  <li>First payments to new contacts and new merchants are flagged too often (20 to 30 % in small samples).</li>
+  <li>The model is over-confident in the 30 to 60 % range during the festival period.</li>
+  <li>The confirmed-scam override and analyst labels are not tested offline, since the synthetic data has no analyst labels.</li>
+  <li>Everything runs as one instance and was only tested to about 20 requests a second on a laptop.</li>
+  <li>Someone could create many accounts to report a payee. Reports never block on their own, but this is not prevented.</li>
+  <li>Baselines update in the background, so in a quick burst of payments a few may be scored against a slightly old baseline.</li>
+  <li>No penetration test or audit has been done, and the secrets are demo defaults.</li>
+  <li>We have not yet run proper user testing (Section 10.5).</li>
+</ul>

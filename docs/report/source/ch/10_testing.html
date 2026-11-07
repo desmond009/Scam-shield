@@ -1,108 +1,60 @@
 <h1>Testing and Results</h1>
 
 <h2>Testing Strategy</h2>
-<p>Testing was organised in five layers, from pure logic to the full running system. Integration tests run against real PostgreSQL and Redis instances with a stubbed ML service, so that concurrency, idempotency and circuit-breaker behaviour are tested as they actually occur.</p>
-<table class="keep">
-  <caption>Test layers, tools and results</caption>
-  <tr><th style="width:20%">Layer</th><th style="width:20%">Tool</th><th>Scope</th><th class="n" style="width:13%">Tests</th></tr>
-  <tr><td>Unit (risk core)</td><td>Vitest</td><td>Feature computation, rules, blending, bands, overrides, reason text</td><td class="n">9</td></tr>
-  <tr><td>Parity (Node ↔ Python)</td><td>Vitest + pytest</td><td>300 random inputs: every feature and rule score identical in both languages</td><td class="n">300 + 3</td></tr>
-  <tr><td>Integration (API)</td><td>Vitest + supertest</td><td>Auth and RBAC, feature builder, two-phase payments, idempotency, concurrency, tokens, cooldown, questionnaire, blocking, reports, ML fallback, circuit breaker, worker jobs</td><td class="n">24</td></tr>
-  <tr><td>ML service contract</td><td>pytest</td><td>Health, scoring contract and ordering, input validation, p95 &lt; 50 ms, evaluation shape</td><td class="n">5</td></tr>
-  <tr><td>End-to-end</td><td>Playwright</td><td>Happy path (LOW goes through); scam path (HIGH, cooldown gate, cancel and report)</td><td class="n">2</td></tr>
-  <tr><td>Performance</td><td>autocannon</td><td><span class="mono">POST /payments/check</span> at 20 req/s for 60 s</td><td class="n">1 run</td></tr>
-</table>
-<p><b>Execution for this report.</b> On 7 November 2026 we re-ran the unit, parity, integration and ML suites on a fresh clone of the repository: <b>341 of 341 tests passed</b> (309 in the shared package, 24 API integration tests against temporary PostgreSQL 16 and Redis instances, and 8 ML-service tests). The two Playwright tests require the full Docker stack and were last run during phase P6; the load test was run on 14 October 2026.</p>
+<p>We tested at several levels. Unit tests cover the shared risk core (features, rules, blending, bands, overrides, reason text). A parity test runs 300 random inputs through both the Python and TypeScript feature code and checks they match exactly. Integration tests run the API against real PostgreSQL and Redis with a fake ML service, because things like double spending and the circuit breaker only show up with real databases. These cover login and roles, the feature builder, the two-step payment, idempotency, parallel confirms, tampered tokens, the pause, the questions, blocking, reports, ML failure and worker jobs. The ML service has its own tests for the scoring contract, input checks and speed. Two Playwright browser tests cover a normal payment and a scam payment from start to end, and we load tested the check endpoint with autocannon.</p>
+<p>On 7 November 2026 we ran the unit, parity, integration and ML suites again on a fresh copy of the code, and all 341 tests passed (309 in the shared package, 24 API integration tests and 8 ML tests). The two browser tests need the whole Docker stack running, and they last passed during phase P6. The load test was run on 14 October 2026.</p>
 
 <h2>Test Cases</h2>
 <table>
-  <caption>Representative test cases</caption>
-  <tr><th style="width:7%">ID</th><th style="width:29%">Test case</th><th>Steps / input</th><th style="width:22%">Expected result</th><th style="width:7%">Result</th></tr>
-  <tr><td>TC-01</td><td>Normal payment to known shop</td><td>Asha pays <span class="mono">kirana.sharma@okaxis</span> ₹350</td><td>LOW; no prompt; completed; ledger debit</td><td>Pass</td></tr>
-  <tr><td>TC-02</td><td>Impersonation payment explained</td><td>₹9,600 to a 1-day-old new payee; ML score 60</td><td>AMOUNT_SPIKE + NEW_PAYEE; final 52, MEDIUM; summary “…8x your largest recent payment and the recipient is new to you.”</td><td>Pass</td></tr>
-  <tr><td>TC-03</td><td>Questionnaire can only raise score</td><td>Answer “no” to all questions on a MEDIUM payment</td><td>Final score ≥ pre-context score</td><td>Pass</td></tr>
-  <tr><td>TC-04</td><td>OTP override</td><td>Answer “asked to share an OTP” = yes</td><td>Band at least HIGH</td><td>Pass</td></tr>
-  <tr><td>TC-05</td><td>HIGH requires cooldown</td><td>Confirm a HIGH payment immediately</td><td>425 COOLDOWN_ACTIVE</td><td>Pass</td></tr>
-  <tr><td>TC-06</td><td>HIGH requires exact retype</td><td>Confirm after cooldown with wrong UPI ID</td><td>422 VERIFICATION_FAILED; failed-attempt counter +1</td><td>Pass</td></tr>
-  <tr><td>TC-07</td><td>Confirmed scam payee blocked</td><td>Analyst marks FRAUD; another user pays same payee</td><td>Status BLOCKED; confirm returns 403</td><td>Pass</td></tr>
-  <tr><td>TC-08</td><td>Idempotent check</td><td>Repeat check with same key and body; then different body</td><td>Replayed response; 422; only one row created</td><td>Pass</td></tr>
-  <tr><td>TC-09</td><td>No double spending</td><td>Five concurrent confirms of one payment</td><td>Exactly one 200; balance exact</td><td>Pass</td></tr>
-  <tr><td>TC-10</td><td>Tampered check token</td><td>Modify token payload / use another user's token</td><td>401 INVALID_CHECK_TOKEN</td><td>Pass</td></tr>
-  <tr><td>TC-11</td><td>Insufficient balance</td><td>Amount above balance</td><td>400; no state change</td><td>Pass</td></tr>
-  <tr><td>TC-12</td><td>ML failure fallback</td><td>ML stub returns error</td><td>Rules-only decision, <span class="mono">degraded: true</span></td><td>Pass</td></tr>
-  <tr><td>TC-13</td><td>ML timeout</td><td>ML stub sleeps beyond 150 ms</td><td>Decision returned within budget, degraded</td><td>Pass</td></tr>
-  <tr><td>TC-14</td><td>Circuit breaker cycle</td><td>Five failures, then healthy ML</td><td>Opens, skips ML, half-open probe, closes</td><td>Pass</td></tr>
-  <tr><td>TC-15</td><td>Baseline excludes fraud</td><td>Label a large payment FRAUD; compute baseline</td><td>Fraud amount not in mean/max</td><td>Pass</td></tr>
-  <tr><td>TC-16</td><td>Distinct-senders count</td><td>Several users pay one payee</td><td>Counts distinct others in 24 h</td><td>Pass</td></tr>
-  <tr><td>TC-17</td><td>Report once per user</td><td>Same user reports a payee twice</td><td>Report count increments once</td><td>Pass</td></tr>
-  <tr><td>TC-18</td><td>RBAC</td><td>User calls analyst/admin endpoints</td><td>403; analyst cannot call admin</td><td>Pass</td></tr>
-  <tr><td>TC-19</td><td>Alert creation</td><td>MEDIUM decision job; LOW decision job</td><td>One alert + live event; none for LOW</td><td>Pass</td></tr>
-  <tr><td>TC-20</td><td>Scoring contract</td><td>ML <span class="mono">/score</span> with missing / unknown feature</td><td>422</td><td>Pass</td></tr>
-  <tr><td>TC-21</td><td>Scoring latency</td><td>Sequential single-row requests</td><td>p95 &lt; 50 ms</td><td>Pass</td></tr>
-  <tr><td>TC-22</td><td>Feature parity</td><td>300 random <span class="mono">FeatureInput</span>s</td><td>TypeScript = Python for all features and rule scores</td><td>Pass</td></tr>
-  <tr><td>TC-23</td><td>E2E happy path</td><td>Browser: log in as Asha, pay known shop</td><td>Payment completes without a prompt</td><td>Pass (P6)</td></tr>
-  <tr><td>TC-24</td><td>E2E scam path</td><td>Browser: pay fake KYC desk</td><td>HIGH screen, cooldown gate, cancel and report</td><td>Pass (P6)</td></tr>
+  <caption>Main test cases (all passed)</caption>
+  <tr><th style="width:10%">ID</th><th style="width:35%">Test</th><th>Expected result</th></tr>
+  <tr><td style="white-space:nowrap">TC-01</td><td>Normal payment to a known shop</td><td>LOW, no prompt, completed with a ledger entry</td></tr>
+  <tr><td style="white-space:nowrap">TC-02</td><td>₹9,600 to a 1-day-old new payee, ML score 60</td><td>AMOUNT_SPIKE and NEW_PAYEE fire, final 52, MEDIUM, correct summary sentence</td></tr>
+  <tr><td style="white-space:nowrap">TC-03</td><td>Answer "no" to every question on a MEDIUM payment</td><td>Score does not go down</td></tr>
+  <tr><td style="white-space:nowrap">TC-04</td><td>Say yes to "asked to share an OTP"</td><td>At least HIGH</td></tr>
+  <tr><td style="white-space:nowrap">TC-05</td><td>Confirm HIGH payment immediately, then with wrong UPI ID</td><td>425, then 422 and failed attempt counted</td></tr>
+  <tr><td style="white-space:nowrap">TC-06</td><td>Pay an analyst-confirmed scam account</td><td>BLOCKED, confirm returns 403</td></tr>
+  <tr><td style="white-space:nowrap">TC-07</td><td>Repeat check with same key, then with changed body</td><td>Same response replayed, then 422; one row only</td></tr>
+  <tr><td style="white-space:nowrap">TC-08</td><td>Five confirms of one payment at the same time</td><td>Exactly one succeeds, balance correct</td></tr>
+  <tr><td style="white-space:nowrap">TC-09</td><td>Tampered or another user's check token</td><td>401</td></tr>
+  <tr><td style="white-space:nowrap">TC-10</td><td>ML service errors or takes longer than 150 ms</td><td>Rules-only decision marked degraded, still within time</td></tr>
+  <tr><td style="white-space:nowrap">TC-11</td><td>Five ML failures, then ML recovers</td><td>Breaker opens, skips ML, tests once, closes</td></tr>
+  <tr><td style="white-space:nowrap">TC-12</td><td>A fraud-labelled payment in history</td><td>Left out of the user's baseline</td></tr>
+  <tr><td style="white-space:nowrap">TC-13</td><td>User or analyst calls an admin endpoint</td><td>403</td></tr>
+  <tr><td style="white-space:nowrap">TC-14</td><td>ML /score with a missing or unknown feature</td><td>422</td></tr>
+  <tr><td style="white-space:nowrap">TC-15</td><td>300 random inputs through Python and TypeScript</td><td>Identical features and rule scores</td></tr>
+  <tr><td style="white-space:nowrap">TC-16</td><td>Browser: fake KYC payment as Asha</td><td>HIGH screen, pause enforced, cancel and report works</td></tr>
 </table>
 
-<h2>Model Evaluation Results</h2>
-<h3>Evaluation protocol</h3>
-<p>The reference model (<span class="mono">gbm-20261014-074524</span>) was trained on 96,118 payments (fraud rate 2.48 %), calibrated on 22,734 (3.11 %), and evaluated on a time-based holdout of the last 25 % of the timeline: <b>45,387 payments, 779 scams (1.72 %)</b>, including a festival period never seen in training. Because the classes are highly imbalanced, we report precision, recall and false-positive rate at the operating thresholds and use PR-AUC rather than ROC-AUC as the primary ranking measure <c>saito2015</c>. Three systems are compared: rules-only, ML-only and the hybrid blend.</p>
+<h2>Model Results</h2>
+<p>The reference model was trained on 96,118 payments and calibrated on 22,734. It was then tested on the last 25 % of the timeline: 45,387 payments, of which 779 (1.72 %) are scams. This includes a festival period it never saw during training. With so few scams, accuracy and ROC-AUC look good for almost any model, so we mainly use precision, recall, false positive rate (FPR) and the area under the precision-recall curve (PR-AUC) <c>saito2015</c>.</p>
 <table class="keep">
-  <caption>Holdout results at the MEDIUM threshold (score ≥ 35)</caption>
-  <tr><th>System</th><th class="n">PR-AUC</th><th class="n">ROC-AUC</th><th class="n">Precision</th><th class="n">Recall</th><th class="n">FPR</th><th class="n">F1</th><th class="n">Flag rate</th></tr>
-  <tr><td>Rules only</td><td class="n">0.511</td><td class="n">0.947</td><td class="n">25.7 %</td><td class="n">73.3 %</td><td class="n">3.71 %</td><td class="n">0.380</td><td class="n">4.90 %</td></tr>
-  <tr><td>ML only</td><td class="n"><b>0.946</b></td><td class="n">0.998</td><td class="n">72.7 %</td><td class="n"><b>94.6 %</b></td><td class="n">0.62 %</td><td class="n">0.822</td><td class="n">2.23 %</td></tr>
-  <tr><td>Hybrid (rules + ML)</td><td class="n">0.933</td><td class="n">0.994</td><td class="n"><b>79.1 %</b></td><td class="n">93.2 %</td><td class="n"><b>0.43 %</b></td><td class="n"><b>0.856</b></td><td class="n">2.02 %</td></tr>
+  <caption>Results on the test period at the MEDIUM threshold (score ≥ 35)</caption>
+  <tr><th>System</th><th class="n">PR-AUC</th><th class="n">Precision</th><th class="n">Recall</th><th class="n">FPR</th><th class="n">F1</th></tr>
+  <tr><td>Rules only</td><td class="n">0.511</td><td class="n">25.7 %</td><td class="n">73.3 %</td><td class="n">3.71 %</td><td class="n">0.380</td></tr>
+  <tr><td>ML only</td><td class="n">0.946</td><td class="n">72.7 %</td><td class="n">94.6 %</td><td class="n">0.62 %</td><td class="n">0.822</td></tr>
+  <tr><td>Hybrid</td><td class="n">0.933</td><td class="n">79.1 %</td><td class="n">93.2 %</td><td class="n">0.43 %</td><td class="n">0.856</td></tr>
 </table>
-<table class="keep">
-  <caption>Holdout results at the HIGH threshold (score ≥ 70)</caption>
-  <tr><th>System</th><th class="n">Precision</th><th class="n">Recall</th><th class="n">FPR</th><th class="n">F1</th><th class="n">TP</th><th class="n">FP</th></tr>
-  <tr><td>Rules only</td><td class="n">74.5 %</td><td class="n">33.0 %</td><td class="n">0.197 %</td><td class="n">0.457</td><td class="n">257</td><td class="n">88</td></tr>
-  <tr><td>ML only</td><td class="n">91.2 %</td><td class="n">89.9 %</td><td class="n">0.152 %</td><td class="n">0.905</td><td class="n">700</td><td class="n">68</td></tr>
-  <tr><td>Hybrid</td><td class="n">96.0 %</td><td class="n">76.0 %</td><td class="n">0.056 %</td><td class="n">0.848</td><td class="n">592</td><td class="n">25</td></tr>
-</table>
-<h3>The headline comparison: recall at matched false-positive rate</h3>
-<p>The definition of done required the hybrid to beat rules-only in recall at a comparable false-positive rate. At the FPR at which rules-only operates (3.71 %), the hybrid threshold that gives a comparable FPR (3.65 %, score ≥ 17.5) catches <b>95.6 %</b> of scams (745 of 779), against <b>73.3 %</b> (571 of 779) for rules alone — an absolute gain of 22.3 percentage points. <b>The criterion is met.</b></p>
+<p>The main check from our definition of done was recall at the same false alarm rate. Rules alone run at an FPR of 3.71 %. If we set the hybrid's threshold so its FPR is about the same (3.65 %), it catches 745 of the 779 scams (95.6 %), compared with 571 (73.3 %) for rules alone. So the hybrid passed.</p>
+<p>It did not win on everything, though. ML alone ranks payments a bit better than the hybrid (PR-AUC 0.946 against 0.933) and has slightly higher recall at 35. Adding the rules costs a little ranking quality. What we get back is readable reasons, the hard overrides, a system that still works when ML is down, and at our chosen thresholds the best precision and the fewest false alarms. At the HIGH threshold of 70 the hybrid's precision is 96.0 % with an FPR of only 0.056 %, which is why we felt comfortable adding strong friction there. We think this is the right trade for a system that interrupts real people, but it is a trade-off, and the Model page in the app shows it.</p>
 <figure>
-  <img class="plain" src="fig/pr_curves.png" style="max-width:82%">
-  <figcaption>Precision–recall curves on the holdout</figcaption>
+  <img class="plain" src="fig/pr_curves.png" style="max-width:75%">
+  <figcaption>Precision-recall curves on the test period</figcaption>
 </figure>
-<p><b>Honest finding.</b> ML-only ranks payments slightly better than the hybrid (PR-AUC 0.946 vs 0.933) and has higher recall at the MEDIUM threshold. The rule component costs a little ranking quality. In exchange it provides human-readable reasons, carries the hard overrides, keeps working when the ML service is down, and — at our operating thresholds — gives the hybrid the best precision and the lowest false-positive rate (0.43 % at MEDIUM; 0.056 % at HIGH). For a system that interrupts real people, we judge that trade-off worthwhile, and we show it openly on the Model page.</p>
 <figure>
-  <img class="plain" src="fig/sweep.png" style="max-width:82%">
-  <figcaption>Hybrid threshold sweep: precision, recall and false-positive rate against score threshold</figcaption>
-</figure>
-<p>Figure 10.2 shows why the bands sit where they do: at 35, recall is still above 93 % while the false-positive rate has fallen below 0.5 %; at 70, precision reaches 96 %, which justifies the stronger HIGH intervention.</p>
-
-<h3>Results by scenario</h3>
-<figure>
-  <img class="plain" src="fig/scenarios.png" style="max-width:82%">
+  <img class="plain" src="fig/scenarios.png" style="max-width:75%">
   <figcaption>Share of scams caught at the MEDIUM threshold, by scenario</figcaption>
 </figure>
+<p>By scenario, the hybrid catches 91 % of impersonation, 99 % of mule collection, 89 % of velocity drain and 99 % of account takeover payments (Figure 10.2). Rules alone do worst on account takeover (57 %), where it is the combination of signals that matters. On false alarms, the hybrid flags 0.04 % of everyday payments and 1.0 % of festival payments. It flags none of the shopkeeper supplier batches, while rules alone flag 11.6 % of them. Its weak spot is first payments to new contacts (21.7 %, out of 60) and new merchants (31.3 %, out of 16). These are small groups, but they are the genuine payments that look most like scams.</p>
+<p>Calibration improved the Brier score from 0.0046 to 0.0035. The calibration curve shows the model is over-confident between about 30 % and 60 % on the test period, probably because of the festival period, and those ranges have few payments. The most important features (Figure 10.3) are payee age, amount z-score, number of different senders to the payee in 24 hours, and repeated similar amounts. These are reasonable signals, the same kind real fraud teams look at.</p>
 <figure>
-  <img class="plain" src="fig/false_alarms.png" style="max-width:82%">
-  <figcaption>Share of genuine payments wrongly flagged at the MEDIUM threshold, by legitimate scenario</figcaption>
+  <img class="plain" src="fig/importance.png" style="max-width:72%">
+  <figcaption>Permutation feature importance (top 12 features)</figcaption>
 </figure>
-<p>The hybrid catches 91 % of impersonation, 99 % of mule-collection, 89 % of velocity-drain and 99 % of account-takeover payments. Rules alone are weakest on account takeover (57 %), where the combination of signals matters more than any single threshold. On the false-alarm side, the hybrid flags 0.04 % of everyday payments, 1.0 % of festival payments and none of the shopkeepers' supplier batches — which rules alone flag at 11.6 %. Its weakest areas are first payments to new contacts (21.7 % flagged, n = 60) and new merchants (31.3 %, n = 16): small groups, but exactly the legitimate behaviour that most resembles a scam, and a known limitation.</p>
 
-<h3>Calibration and feature importance</h3>
-<figure>
-  <img class="plain" src="fig/calibration.png" style="max-width:55%">
-  <figcaption>Calibration of the ML model on the holdout</figcaption>
-</figure>
-<figure>
-  <img class="plain" src="fig/importance.png" style="max-width:80%">
-  <figcaption>Permutation feature importance of the ML model (top 12 features)</figcaption>
-</figure>
-<p>Isotonic calibration improved the Brier score from 0.0046 to 0.0035 on the holdout. The calibration curve shows that the model is over-confident in the 30–60 % range on the holdout: the holdout contains a festival period that shifts behaviour, and those bins contain few payments. We show this rather than hide it. The most important features are payee age, amount z-score, distinct senders to the payee in 24 hours and repeated similar amounts — signals that real fraud teams also use. Feature importances were inspected after every change to the generator; this is how two data leaks were discovered (Section 11.1).</p>
+<h2>Performance</h2>
+<p>We sent 1,200 check requests at 20 per second over 60 seconds. Every one ran the full pipeline with ML, and there were no errors or fallbacks. Measured from the client, the median was 42 ms, the 99th percentile 118 ms and the slowest 147 ms. The API's own metrics gave a p95 of 109 ms, well under the 300 ms target. The first time we ran this test it went badly: the ML service could only do about 47 requests a second, the circuit breaker kept opening and most decisions fell back to rules. The cause was scikit-learn's thread pool, which costs more to start than a single prediction takes. Setting <span class="mono">OMP_NUM_THREADS=1</span> took the ML service to about 154 requests a second, and the breaker stayed closed. The 20 per second limit came from our per-user rate limit and the 12 test accounts. It is not the most the system can handle.</p>
 
-<h2>Performance Results</h2>
-<figure>
-  <img class="plain" src="fig/latency.png" style="max-width:72%">
-  <figcaption>Latency of POST /payments/check under load (1,200 requests at 20 req/s, client-side)</figcaption>
-</figure>
-<p>Under a 60-second load of 20 requests per second over 10 connections, every request ran the full hybrid pipeline with zero errors and zero ML fallbacks. Client-measured latency was p50 42 ms, p90 87 ms, p99 118 ms, maximum 147 ms; the API's own metrics reported p95 109 ms — well within the 300 ms budget (NFR-1). The first load test exposed a bottleneck: scikit-learn's OpenMP thread pool made single-row predictions slow under concurrency (47 req/s, p50 205 ms), which tripped the circuit breaker. Setting <span class="mono">OMP_NUM_THREADS=1</span> raised ML throughput to 154 req/s (p50 61 ms) and the breaker stayed closed. The tested rate of 20 req/s reflects the per-user rate limit and the 12 test accounts, not a measured maximum.</p>
-
-<h2>User Feedback and Acceptance Testing</h2>
-<p>User acceptance testing was planned around the four personas with the following script: (1) make three everyday payments; (2) pay a “KYC desk” while a team member plays a pressuring caller; (3) pay a known contact a large amount (rent); (4) as an analyst, review the alerts created. Acceptance criteria were: everyday payments complete without any prompt; the participant understands, in their own words, why a payment was flagged; the participant cancels at least the coached scam payment; and the participant rates the HIGH friction as acceptable.</p>
-<div class="todo">Insert the results of user acceptance sessions and the viva demonstration feedback here: number of participants and their profile, task completion, whether they cancelled the coached scam payment, comments on the wording and friction, and any changes made as a result. Report only sessions that actually took place.</div>
+<h2>User Feedback</h2>
+<p>We planned user acceptance tests around the four personas. Each participant makes three normal payments, pays a "KYC desk" while one of us acts as a pushy caller, pays a large amount to a known person (rent), and then reviews the alerts as an analyst. A session passes if the normal payments go through with no prompt, the participant can explain in their own words why the payment was flagged, they cancel the coached scam payment, and they find the HIGH screen acceptable.</p>
+<div class="todo">Add the results of any user testing sessions and the feedback from the viva demo: how many people, who they were, whether they cancelled the scam payment, and what they said. Only include sessions that actually happened.</div>

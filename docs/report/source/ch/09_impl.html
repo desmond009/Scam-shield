@@ -1,105 +1,65 @@
 <h1>Implementation</h1>
-<p>The system is implemented as a single monorepo with npm workspaces for the TypeScript packages and a Python package for the ML service. The repository contains 134 TypeScript/TSX source and test files and 17 Python files. This chapter describes each module, the development process and the working product.</p>
 
-<h2>Module-by-Module Description</h2>
+<h2>What We Built</h2>
+<p>All the code is in one repository. TypeScript packages are managed as npm workspaces and the ML service is a separate Python package. There are five main parts.</p>
+<p><b>Shared risk core</b> (<span class="mono">packages/shared</span>). This is a small library with no side effects. It turns inputs into the 20 features, runs the rules, blends the scores, applies the overrides and builds the reason text. Since it is pure logic, it was easy to test thoroughly, and both the API and the browser use exactly the same code. The main decision function is in Appendix D.</p>
+<p><b>ML service</b> (<span class="mono">services/ml</span>). On first start it generates the data, trains the model and a logistic regression baseline, calibrates, evaluates all three systems on the test period, and saves a versioned model folder before it starts serving. The <span class="mono">/score</span> endpoint rejects requests that do not have exactly the 20 expected features, and returns the probability, the score, the model version and the top contributing features. Retraining runs in the background. Analyst labels are only ever added to the training data, never to the test data.</p>
+<p><b>API</b> (<span class="mono">apps/api</span>). The feature builder fetches everything it needs with one PostgreSQL query plus a batch of Redis reads running in parallel. The risk engine calls the shared core and the ML client, saves the decision with its latency and model version, and queues a job. The payments service handles the idempotent check, re-scoring after the questions, cancel and report, and the atomic confirm. Middleware handles sessions, roles and rate limits, and every route validates its input.</p>
+<p><b>Worker</b>. This creates alerts for MEDIUM and HIGH decisions and publishes them for the live analyst view. It also refreshes a user's baseline after each payment, recalculates payee reputation, writes a metrics summary every 30 seconds (which also tells the health page that the worker is alive), syncs the active model every minute and runs retraining when asked. Failed jobs are retried, and if the queue is down, payments still go through.</p>
+<p><b>Web app</b> (<span class="mono">apps/web</span>). For users, it has the wallet, the Send money flow with the risk meter, reasons, questions and the MEDIUM/HIGH screens, and a My Safety page. Analysts get a live alert queue and a detail view. Admins get the scam simulator, the rules editor with what-if preview, the model evaluation page and the system health page.</p>
+
+<h2>Development Method</h2>
+<p>We worked in seven short phases, P0 to P6, and each ended with something working, tested and committed. Before writing any code we agreed on a "definition of done", which included the evaluation rule from Chapter 1: the hybrid had to beat rules alone on recall at the same false alarm rate, and if it did not, we would say so. We did the riskiest part (data, model and evaluation) first.</p>
 <table class="keep">
-  <caption>Repository structure</caption>
-  <tr><th style="width:24%">Directory</th><th>Contents</th></tr>
-  <tr><td><span class="mono">packages/shared</span></td><td>Feature specification and computation, rule definitions and engine, blending and overrides, reason catalogue, zod schemas — used by the API, the web app and (via JSON spec) the ML service</td></tr>
-  <tr><td><span class="mono">services/ml</span></td><td>FastAPI scoring service; synthetic data generator; training, calibration and evaluation; occlusion explanations; parity fixture</td></tr>
-  <tr><td><span class="mono">apps/api</span></td><td>Express API and BullMQ worker; Prisma schema and migrations; seed data; services for features, risk, payments, alerts, admin, simulator, metrics</td></tr>
-  <tr><td><span class="mono">apps/web</span></td><td>Next.js App Router UI: landing, auth, wallet, send money, My Safety, analyst console, admin pages; Playwright end-to-end tests</td></tr>
-  <tr><td><span class="mono">docs</span>, <span class="mono">scripts</span>, <span class="mono">infra</span></td><td>Architecture, API, data and demo documentation; load-test and screenshot scripts; database initialisation</td></tr>
+  <caption>Development phases</caption>
+  <tr><th style="width:9%">Phase</th><th>What was done</th></tr>
+  <tr><td>P0</td><td>Repository setup, Docker Compose with six services, database schema, health endpoints</td></tr>
+  <tr><td>P1</td><td>Data generator, training with calibration, evaluation, scoring service, Node/Python parity tests</td></tr>
+  <tr><td>P2, P3</td><td>Login and roles, feature builder, rules + ML + blend, two-step payments, idempotency, circuit breaker, worker jobs</td></tr>
+  <tr><td>P4, P5</td><td>Wallet, Send money with all three bands, My Safety, analyst console, simulator, rules editor, model and health pages</td></tr>
+  <tr><td>P6</td><td>Worker tests, browser tests, load test, screenshots, documentation</td></tr>
+</table>
+<p>The core build was done in one intensive week starting on 14 October 2026. After that came load testing, fixing the data leaks we found (Section 11.1), demo practice and this report (Figure 9.1).</p>
+<figure>
+  <img class="plain" src="fig/gantt.png" style="max-width:92%">
+  <figcaption>Project timeline</figcaption>
+</figure>
+
+<h2>Team Roles</h2>
+<div class="todo">This split is only a suggestion based on the parts of the system. Replace it with who actually did what.</div>
+<table class="keep">
+  <caption>Team roles</caption>
+  <tr><th style="width:24%">Member</th><th>Main responsibility</th></tr>
+  <tr><td>Ansh (23BCS016)</td><td>Data generator, model training and calibration, evaluation, ML service</td></tr>
+  <tr><td>Harshit (23BCS054)</td><td>API, feature builder, risk engine, payment consistency, worker</td></tr>
+  <tr><td>Vijender (23BCS132)</td><td>Web app and warning screens, analyst and admin consoles, Docker, browser tests</td></tr>
+  <tr><td>Sourabh (23BEC055)</td><td>User research, market and legal study, load testing, test plan, documentation</td></tr>
 </table>
 
-<h3>Shared risk core (packages/shared)</h3>
-<p>The heart of the system is a pure, side-effect-free library: <span class="mono">computeFeatures()</span> turns a <span class="mono">FeatureInput</span> into the 20 features; <span class="mono">evaluateRules()</span> applies the enabled rules with their weights; <span class="mono">decide()</span> blends rule and ML scores, applies overrides and orders reasons; and the reason catalogue renders each reason as a user sentence, a summary phrase and an analyst detail. Because the logic is pure, it is exhaustively unit-tested and identical in the API and the browser. Appendix D reproduces the decision function.</p>
-
-<h3>ML service (services/ml)</h3>
-<p>On first start the service runs the generator, trains the gradient-boosting model and a logistic-regression baseline, calibrates on the calibration slice, evaluates rules-only, ML-only and hybrid on the holdout, writes a versioned model directory (<span class="mono">model.joblib</span>, <span class="mono">metrics.json</span>, <span class="mono">evaluation.json</span>) and only then begins serving. <span class="mono">POST /score</span> validates that exactly the 20 named features are present, returns the calibrated probability, the 0–100 score, the model version and the top contributing features. Retraining runs in the background with progress exposed at <span class="mono">/train/status</span>; analyst labels are added to the training data only, never to the holdout.</p>
-
-<h3>API (apps/api)</h3>
-<p>The <b>feature builder</b> gathers all inputs in one PostgreSQL round trip plus pipelined Redis reads executed in parallel, falling back to PostgreSQL to rebuild known-payee and device sets on a cache miss. The <b>risk engine</b> calls the shared core and the ML client (with timeout and circuit breaker), stores the decision with its latency and model version, and enqueues a job. The <b>payments service</b> implements idempotent check, questionnaire re-scoring, cancel-and-report, and the atomic confirm with check-token verification, cooldown and retype checks. <b>Middleware</b> provides session/bearer authentication, role checks and Redis rate limiting; every route validates input with zod and logs with a request ID.</p>
-
-<h3>Worker (apps/api/src/worker.ts)</h3>
-<p>Consumes two BullMQ queues: <span class="mono">risk-events</span> (create or escalate alerts for MEDIUM/HIGH and publish live events; refresh the payer's baseline after each completed payment; recompute payee reputation; 30-second metrics roll-up that doubles as the worker heartbeat) and <span class="mono">model</span> (sync the active model every 60 seconds; retrain on request). Jobs retry with exponential back-off; enqueue failures are logged and never block payments.</p>
-
-<h3>Web application (apps/web)</h3>
-<ul>
-  <li><b>User:</b> landing page with one-click demo accounts; wallet dashboard (balance, 30-day spending chart, recent transactions); <i>Send money</i> with recipient card, risk meter, reasons, questionnaire and the MEDIUM/HIGH interventions; <i>My Safety</i> (warnings received, payees reported).</li>
-  <li><b>Analyst:</b> live alert queue with filters and a “Live” indicator (SSE); alert detail with score breakdown, reasons, ML top features, features table, payee panel and review form.</li>
-  <li><b>Admin:</b> Scam Simulator; Rules &amp; Thresholds with what-if preview; Model &amp; Evaluation (comparison table, PR curves, threshold sweep, calibration, feature importance, confusion matrices, per-scenario table, retraining); System Health.</li>
-</ul>
-
-<h2>Development Methodology</h2>
-<p>We followed an incremental, Agile-inspired process organised as seven phases (P0–P6), each ending with a working, tested increment and a commit. Before any coding, we fixed a written <b>definition of done</b> that included an honest-evaluation criterion: the hybrid must beat rules-only on recall at a matched false-positive rate, and if it did not, the report would say so. Phases were sized so that the riskiest parts — data, model and evaluation — came first.</p>
-<table class="keep">
-  <caption>Development phases and deliverables</caption>
-  <tr><th style="width:8%">Phase</th><th style="width:26%">Goal</th><th>Deliverables</th></tr>
-  <tr><td>P0</td><td>Scaffold</td><td>Monorepo, Docker Compose (6 services), Prisma schema and migrations, health endpoints</td></tr>
-  <tr><td>P1</td><td>Data and model</td><td>Synthetic generator, training with calibration, evaluation harness, FastAPI scoring service, Node/Python parity tests</td></tr>
-  <tr><td>P2 + P3</td><td>API core and risk pipeline</td><td>Auth and RBAC, feature builder, rules + ML + blend, two-phase payments, idempotency, circuit breaker, worker jobs</td></tr>
-  <tr><td>P4 + P5</td><td>Web application</td><td>Wallet, send money with LOW/MEDIUM/HIGH interventions, My Safety, analyst console with SSE, simulator, rules what-if, model evaluation, system health</td></tr>
-  <tr><td>P6</td><td>Hardening and documentation</td><td>Worker-job tests, Playwright end-to-end tests, load test, screenshots, architecture/API/data/demo documentation</td></tr>
-</table>
-<p>The core build (P0–P6) was completed in an intensive one-week sprint beginning 14 October 2026, followed by load testing, a data-leak investigation, demo rehearsal and the preparation of this report. Figure 9.1 shows the timeline.</p>
+<h2>Screenshots</h2>
+<p>These were taken from the running system with the demo data.</p>
 <figure>
-  <img class="plain" src="fig/gantt.png">
-  <figcaption>Project timeline (Gantt chart)</figcaption>
-</figure>
-<p>Daily practice: short stand-ups to agree the day's increment; trunk-based development with one commit per phase; tests written alongside code (integration tests against real PostgreSQL and Redis rather than mocks); every evaluation result checked against feature importances before being accepted (Section 11.1).</p>
-
-<h2>Team Roles and Responsibilities</h2>
-<div class="todo">The allocation below is a proposal based on the modules of the system; the repository history does not record who did what. Replace it with the actual division of work before submission.</div>
-<table class="keep">
-  <caption>Team roles and responsibilities</caption>
-  <tr><th style="width:22%">Member</th><th style="width:28%">Primary role</th><th>Responsibilities</th></tr>
-  <tr><td>Ansh (23BCS016)</td><td>ML and data lead</td><td>Synthetic data generator, training and calibration, evaluation harness, leak investigation, ML service</td></tr>
-  <tr><td>Harshit (23BCS054)</td><td>Back-end lead</td><td>API, feature builder, risk engine, payments consistency, worker, Redis design</td></tr>
-  <tr><td>Vijender (23BCS132)</td><td>Front-end and integration lead</td><td>Web app, interventions UX, analyst and admin consoles, Docker setup, end-to-end tests</td></tr>
-  <tr><td>Sourabh (23BEC055)</td><td>QA, research and compliance</td><td>User research and questionnaire, market analysis, legal and compliance review, load testing, test planning, documentation</td></tr>
-</table>
-
-<h2>Screenshots of the Working Product</h2>
-<p>All screenshots were captured from the running system with the seeded demo data. They are reproduced from the repository's <span class="mono">docs/screenshots</span> folder; tall pages are cropped.</p>
-<figure>
-  <img src="fig/landing.png" style="max-width:85%">
-  <figcaption>Landing page with one-click demo accounts</figcaption>
+  <img src="fig/wallet.png" style="max-width:80%">
+  <figcaption>Wallet dashboard</figcaption>
 </figure>
 <figure>
-  <img src="fig/wallet.png" style="max-width:85%">
-  <figcaption>Wallet dashboard: balance, 30-day spending and recent transactions</figcaption>
+  <img src="fig/send-medium.png" style="max-width:62%">
+  <figcaption>A MEDIUM risk payment with reasons and the three questions</figcaption>
 </figure>
 <figure>
-  <img src="fig/send-medium.png" style="max-width:72%">
-  <figcaption>MEDIUM risk: score, reasons and the three scam-context questions</figcaption>
+  <img src="fig/send-high-risk.png" style="max-width:80%">
+  <figcaption>A HIGH risk payment, with "Cancel and report this account" as the main button</figcaption>
 </figure>
 <figure>
-  <img src="fig/send-high-risk.png" style="max-width:85%">
-  <figcaption>HIGH risk: blocking screen with “Cancel and report this account” as the primary action</figcaption>
-</figure>
-<figure class="tiny">
-  <img src="fig/send-high-risk-mobile-dark.png" style="max-width:40%">
-  <figcaption>HIGH-risk screen on a 390 px mobile viewport in dark mode</figcaption>
+  <img src="fig/analyst.png" style="max-width:85%">
+  <figcaption>Analyst console with the live alert queue and alert detail</figcaption>
 </figure>
 <figure>
-  <img src="fig/analyst.png" style="max-width:88%">
-  <figcaption>Analyst console: live alert queue (left) and alert detail with score breakdown and review form (right)</figcaption>
+  <img src="fig/simulator-top.png" style="max-width:85%">
+  <figcaption>Scam simulator: a mule collection run moving from LOW to MEDIUM as more people pay the same account</figcaption>
 </figure>
 <figure>
-  <img src="fig/simulator-top.png" style="max-width:88%">
-  <figcaption>Scam Simulator: a mule-collection run escalating from LOW to MEDIUM as distinct senders accumulate</figcaption>
+  <img src="fig/model-top.png" style="max-width:85%">
+  <figcaption>Model and evaluation page</figcaption>
 </figure>
-<figure>
-  <img src="fig/rules-top.png" style="max-width:88%">
-  <figcaption>Rules and thresholds editor with what-if preview on labelled holdout data</figcaption>
-</figure>
-<figure>
-  <img src="fig/model-top.png" style="max-width:88%">
-  <figcaption>Model and evaluation page: active model, headline comparison and side-by-side metrics</figcaption>
-</figure>
-<figure>
-  <img src="fig/health-top.png" style="max-width:85%">
-  <figcaption>System health: service status, circuit breaker, decisions by band and latency</figcaption>
-</figure>
-<p class="note">The screenshots of the Model, Rules and Health pages were captured after an in-app retraining that included two analyst labels (model <span class="mono">gbm-20261014-112001</span>), so their figures differ slightly from the reference model (<span class="mono">gbm-20261014-074524</span>) whose evaluation is reported in Chapter 10.</p>
+<p class="small">The Model page screenshot was taken after a retraining in the app that included two analyst labels, so its numbers are slightly different from the reference model reported in Chapter 10.</p>

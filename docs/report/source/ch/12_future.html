@@ -1,50 +1,17 @@
 <h1>Future Scope and Roadmap</h1>
 
-<h2>Planned Improvements and Features</h2>
-<table>
-  <caption>Planned improvements</caption>
-  <tr><th style="width:26%">Area</th><th>Improvement</th></tr>
-  <tr><td>Real-data validation</td><td>Shadow-mode pilot with a partner institution: score real traffic without intervening, compare with confirmed fraud labels, re-tune thresholds and recalibrate.</td></tr>
-  <tr><td>Detection</td><td>Graph features over the payee–sender network to detect mule rings; device fingerprinting; external signals (DoT FRI for the payee's phone, Suspect Registry hits); drift monitoring with automatic alerts.</td></tr>
-  <tr><td>Model operations</td><td>Model registry (e.g. MLflow) with shadow deployment and canary roll-out: a candidate model scores live traffic without affecting decisions until its metrics are proven.</td></tr>
-  <tr><td>Intervention design</td><td>A/B-tested warning wording; “trusted contact” confirmation for seniors on HIGH payments; varied (polymorphic) warning designs to resist habituation <c>anderson2015</c>; regional languages and voice read-out.</td></tr>
-  <tr><td>Analyst tooling</td><td>Case grouping by payee, bulk actions, SLA timers, export to the bank's FRM system and to the 1930/CFCFRMS process.</td></tr>
-  <tr><td>Privacy</td><td>Federated learning across institutions to share patterns without sharing customer data; privacy-preserving payee reputation exchange.</td></tr>
-  <tr><td>Security and compliance</td><td>Penetration test, OWASP ASVS L2 verification, DPDP-compliant consent manager integration, CERT-In-compliant logging.</td></tr>
-</table>
+<h2>Planned Improvements</h2>
+<p>The most important next step is testing on real data. We would run ScamShield in shadow mode with a partner, scoring real payments without showing anything to users, then compare the scores with confirmed fraud cases and re-tune the thresholds and calibration. On the detection side we want to use the network of who pays whom to find mule rings, add device fingerprinting, and use outside signals like DoT FRI for the payee's phone number. We also want to watch for drift and get alerts when the model starts to go stale. For safer model updates, a new model should first score live traffic in the background (shadow deployment) and only replace the old one once it is proven.</p>
+<p>For the warning screens, we would like to test different wordings with real users. We would also like to add a "trusted contact" confirmation for senior citizens on HIGH payments, vary the warning design so people do not get used to it <c>anderson2015</c>, and add Hindi and Kannada with voice read-out. For analysts, it would help to group cases by payee and export them to the bank's own systems. Federated learning could let banks share fraud patterns without sharing customer data.</p>
 
 <h2>Scaling Plan</h2>
-<p>The API and ML services are stateless — all state is in Redis and PostgreSQL, and live alerts fan out via Redis pub/sub — so both scale horizontally behind a load balancer. Table 12.2 sketches the path from the prototype to national scale.</p>
-<table class="keep">
-  <caption>Scaling stages</caption>
-  <tr><th style="width:16%">Stage</th><th class="n" style="width:16%">Load</th><th>Architecture</th></tr>
-  <tr><td>Prototype</td><td class="n">≈ 20 req/s</td><td>One instance of each service on a laptop (current).</td></tr>
-  <tr><td>Pilot</td><td class="n">≈ 200 req/s</td><td>3 API + 3 ML replicas behind a load balancer; managed PostgreSQL with a read replica; managed Redis; hosted in an Indian cloud region.</td></tr>
-  <tr><td>Regional</td><td class="n">≈ 2,000 req/s</td><td>Redis Cluster with per-user hash tags so a user's keys share a slot; monthly partitioning of Transaction and RiskDecision; autoscaling ML pods (one process per core).</td></tr>
-  <tr><td>National</td><td class="n">≥ 10,000 req/s</td><td>Kafka streams for durable, replayable events and streaming features; a feature store (online Redis + offline warehouse) to guarantee training/serving parity; multi-region active-active deployment.</td></tr>
-</table>
+<p>The API and ML services keep no state of their own, so we can run more copies behind a load balancer. For a pilot at a few hundred requests a second, three API and three ML copies with managed PostgreSQL (plus a read replica) and Redis in an Indian region should be enough. At a few thousand requests a second we would move to a Redis Cluster with each user's keys kept together, split the transaction tables by month, and autoscale the ML service. At national scale it would make sense to move to Kafka for events, add a proper feature store so that training and serving always match, and run in more than one region.</p>
 
 <h2>Product Roadmap</h2>
-<figure>
-<pre class="mermaid">
-timeline
-  title ScamShield product roadmap
-  section Short term (0–6 months)
-    Q1 : Shadow-mode pilot with one partner
-       : Primary user research and UAT
-    Q2 : Threshold re-tuning on real data
-       : Hindi and Kannada warnings
-       : Security audit and DPDP readiness
-  section Mid term (6–18 months)
-    Q3–Q4 : Graph-based mule detection
-          : Model registry, shadow and canary
-    Q5–Q6 : Mobile SDK (Android / iOS)
-          : FRI and Suspect Registry signals
-          : Second and third customers
-  section Long term (18–36 months)
-    Year 2–3 : Federated learning across institutions
-             : Regulatory sandbox participation
-             : Multi-region, national-scale deployment
-</pre>
-  <figcaption>Product roadmap</figcaption>
-</figure>
+<table class="keep">
+  <caption>Product roadmap</caption>
+  <tr><th style="width:20%">Period</th><th>Plan</th></tr>
+  <tr><td>Short term (0 to 6 months)</td><td>Shadow-mode pilot with one partner, proper user research and testing, threshold tuning on real data, Hindi and Kannada warnings, security audit, DPDP readiness</td></tr>
+  <tr><td>Mid term (6 to 18 months)</td><td>Mule network detection, model shadow and canary rollout, Android and iOS SDK, DoT FRI and Suspect Registry signals, second and third customers</td></tr>
+  <tr><td>Long term (18 to 36 months)</td><td>Federated learning across institutions, RBI sandbox participation, deployment across regions at national scale</td></tr>
+</table>

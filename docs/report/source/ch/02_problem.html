@@ -1,78 +1,36 @@
 <h1>Problem Definition</h1>
 
 <h2>Problem Statement</h2>
-<div class="box"><b>Problem statement.</b> Users of instant, irrevocable payment systems such as UPI are being manipulated into authorising payments to fraudsters. Existing safeguards verify <i>who</i> is paying (PIN, OTP, device) but not <i>whether the payment makes sense</i>, and they act mostly after the money has gone. There is no widely available mechanism that, at the moment of payment, (a) estimates how likely this specific payment is to be a scam, (b) explains why in plain language, and (c) adds friction in proportion to the risk — without slowing down the overwhelming majority of genuine payments.</div>
-<p>The problem has three parts. The <b>detection</b> problem is to estimate scam risk from behavioural signals within a few hundred milliseconds, with extremely imbalanced data (scams are a tiny fraction of payments) and adversaries who adapt. The <b>intervention</b> problem is to change the victim's behaviour at the critical moment, even when a scammer is coaching them on the phone, without training all users to ignore warnings. The <b>feedback</b> problem is to turn every confirmed scam into protection for the next potential victim — for example by blocking a mule account for all users once an analyst confirms it.</p>
+<p>People using instant payment systems like UPI are being tricked into sending money to fraudsters themselves. Current safety checks confirm who is paying (PIN, OTP, device) but not whether the payment makes sense, and most help comes only after the money is gone. There is no common tool that, at the moment of payment, estimates how risky that particular payment is, explains the reason to the payer, and slows down only the risky ones without bothering everyone else.</p>
 
-<h2>Why This Is a Real Problem</h2>
-<p>Table 2.1 summarises the scale of the problem using the most recent figures available to us. Figures from parliamentary replies are cited through the news reports that published them; we name the base of each figure because different publications use different scopes.</p>
-<table>
-  <caption>Indicators of the scale of payment fraud in India</caption>
-  <tr><th>Indicator</th><th>Period</th><th class="n">Value</th><th>Source</th></tr>
-  <tr><td>UPI transactions processed</td><td>FY2025-26</td><td class="n">≈ 24,162 crore (₹314.23 lakh crore)</td><td><c>upi_fy26, upi_fy26b</c></td></tr>
-  <tr><td>UPI fraud cases / amount</td><td>FY2023-24</td><td class="n">≈ 13.42 lakh / ₹1,087 crore</td><td><c>upi_fraud_ls</c></td></tr>
-  <tr><td>UPI fraud cases / amount</td><td>FY2024-25</td><td class="n">≈ 12.64 lakh / ₹981 crore</td><td><c>upi_fraud_ls</c></td></tr>
-  <tr><td>UPI fraud amount (part year, provisional)</td><td>FY2025-26 to Dec 2025</td><td class="n">₹805 crore</td><td><c>upi_fraud_ians</c></td></tr>
-  <tr><td>Cyber financial-fraud losses reported (all channels)</td><td>2023</td><td class="n">₹7,465.18 crore (24.43 lakh incidents)</td><td><c>i4c_loss</c></td></tr>
-  <tr><td>Cyber financial-fraud losses reported (all channels)</td><td>2024</td><td class="n">₹22,845.73 crore (36.37 lakh incidents)</td><td><c>i4c_loss</c></td></tr>
-  <tr><td>“Digital arrest” scam cases / amount</td><td>2024</td><td class="n">1,23,672 / ₹1,935.51 crore</td><td><c>digital_arrest</c></td></tr>
-  <tr><td>Amount saved through CFCFRMS (cumulative)</td><td>to Jun 2026</td><td class="n">&gt; ₹11,158 crore</td><td><c>cfcfrms_saved</c></td></tr>
-  <tr><td>UPI-using families reporting fraud since 2022</td><td>2025 survey</td><td class="n">≈ 1 in 5</td><td><c>localcircles</c></td></tr>
-  <tr><td>UPI fraud victims who did not file a complaint</td><td>2025 survey</td><td class="n">≈ 51 %</td><td><c>localcircles_nc</c></td></tr>
+<h2>Why It Is a Real Problem</h2>
+<p>Table 2.1 collects the main numbers we found. Figures from Parliament replies are cited through the news reports that published them.</p>
+<table class="keep">
+  <caption>Scale of payment fraud in India</caption>
+  <tr><th>Indicator</th><th>Period</th><th class="n">Value</th><th>Ref.</th></tr>
+  <tr><td>UPI fraud cases / amount</td><td>FY2023-24</td><td class="n">13.42 lakh / ₹1,087 cr</td><td><c>upi_fraud_ls</c></td></tr>
+  <tr><td>UPI fraud cases / amount</td><td>FY2024-25</td><td class="n">12.64 lakh / ₹981 cr</td><td><c>upi_fraud_ls</c></td></tr>
+  <tr><td>UPI fraud amount, part year (provisional)</td><td>FY2025-26 to Dec</td><td class="n">₹805 cr</td><td><c>upi_fraud_ians</c></td></tr>
+  <tr><td>Cyber financial fraud losses, all channels</td><td>2023 / 2024</td><td class="n">₹7,465 cr / ₹22,846 cr</td><td><c>i4c_loss</c></td></tr>
+  <tr><td>"Digital arrest" cases / amount</td><td>2024</td><td class="n">1,23,672 / ₹1,935.51 cr</td><td><c>digital_arrest</c></td></tr>
+  <tr><td>Families reporting UPI fraud since 2022</td><td>2025 survey</td><td class="n">about 1 in 5</td><td><c>localcircles</c></td></tr>
+  <tr><td>Victims who never filed a complaint</td><td>2025 survey</td><td class="n">about 51 %</td><td><c>localcircles_nc</c></td></tr>
 </table>
 <figure>
-  <img class="plain" src="fig/problem_trend.png" style="max-width:88%">
-  <figcaption>Reported cyber financial-fraud losses, 2023–24, and “digital arrest” cases, 2022–24 (sources as in Table 2.1)</figcaption>
+  <img class="plain" src="fig/problem_trend.png" style="max-width:85%">
+  <figcaption>Reported cyber financial fraud losses (2023 to 2024) and "digital arrest" cases (2022 to 2024)</figcaption>
 </figure>
-<p>Five observations follow from these numbers. First, the absolute loss is large and growing: reported cyber financial-fraud losses roughly tripled between 2023 and 2024. Second, the volume of UPI fraud cases (more than a million a year) is too large for manual handling; any defence must be automated. Third, the number of UPI fraud cases fell slightly between FY24 and FY25 while UPI volume kept growing, which suggests that controls do work — the problem is tractable. Fourth, this is high-volume, low-value retail fraud: in RBI's data for FY2024-25, card and internet frauds made up about two-thirds of bank fraud <i>cases</i> but only about 7 % of the <i>amount</i> involved <c>rbi_trend</c> — many small losses to ordinary people, which are rarely worth a long investigation and therefore have to be prevented rather than pursued. Fifth, the true extent is under-reported: about half of victims surveyed never file a complaint <c>localcircles_nc</c>.</p>
-<p>Behind the statistics are typical stories, several of which we heard from people we know:</p>
-<ul>
-  <li><b>Fake KYC / bank call.</b> “Your account will be blocked today unless you complete KYC.” The victim pays a “verification fee” or is guided to a “refund” that is actually a payment.</li>
-  <li><b>Digital arrest.</b> A caller posing as police or customs claims a parcel in the victim's name contained drugs and demands a “security deposit” to avoid arrest, keeping the victim on a video call for hours.</li>
-  <li><b>Job and task scams.</b> A “part-time job” requires a small registration fee, then larger “deposits” to unlock earnings. The collecting account is a mule paid by dozens of victims in a day.</li>
-  <li><b>Remote-access drain.</b> The victim is persuaded to install a screen-sharing app “for support”; the fraudster then makes several rapid payments of similar amounts.</li>
-  <li><b>Account takeover.</b> Stolen credentials are used from a new device, often at night, after several failed attempts, to send most of the balance to a new payee.</li>
-</ul>
+<p>A few things stand out. Losses roughly tripled from 2023 to 2024. There are more than ten lakh UPI fraud cases a year, which is far too many to handle by hand. RBI's data for FY2024-25 shows card and internet frauds were about two-thirds of bank fraud cases but only about 7 % of the amount <c>rbi_trend</c>, which means a very large number of small losses to ordinary people, the kind that rarely get investigated in depth. And about half the victims in the LocalCircles survey never complained at all <c>localcircles_nc</c>, so the real numbers are higher.</p>
+<p>The common patterns are well known by now. In a fake KYC call, the victim is told their account will be blocked unless they pay a small "verification" amount. In a "digital arrest", a caller posing as police or customs keeps the victim on a video call for hours and demands a deposit. Job and task scams ask for a registration fee and then bigger "deposits", and the receiving account is a mule collecting from dozens of people a day. In a remote-access scam the victim installs a screen-sharing app "for support" and several quick payments of similar amounts follow. Account takeover uses stolen credentials from a new phone, often at night, to send most of the balance to someone new.</p>
 
 <h2>Root Causes</h2>
-<figure class="m-small">
-<pre class="mermaid">
-flowchart LR
-  P["Users authorise payments<br/>to scammers"]
-  A["<b>Human factors</b><br/>urgency & fear · authority<br/>trust in caller · low awareness"] --> P
-  B["<b>Payment design</b><br/>instant & irrevocable<br/>pay-anyone by ID · PIN = consent"] --> P
-  C["<b>Information gaps</b><br/>payer cannot see payee age,<br/>reports or mule activity"] --> P
-  D["<b>Ecosystem</b><br/>mule accounts · cheap SIMs<br/>slow cross-bank sharing"] --> P
-  E["<b>Existing controls</b><br/>authenticate the person, not the intent<br/>mostly post-transaction"] --> P
-</pre>
-  <figcaption>Root causes of authorised push payment fraud on UPI</figcaption>
-</figure>
-<h3>Why the problem exists</h3>
-<ol>
-  <li><b>Social engineering exploits predictable psychology.</b> Scams rely on authority, urgency, fear, reciprocity and distraction <c>stajano2011</c>. A frightened person on a call does not stop to check a payee's details.</li>
-  <li><b>Authentication is not intent verification.</b> A UPI PIN proves that the account holder is present; it says nothing about whether they understand where the money is going. In APP fraud the right person enters the right PIN.</li>
-  <li><b>The payer lacks information the system has.</b> The platform knows that a payee account is two days old, has been reported three times or received money from 15 strangers today. The payer sees only a name.</li>
-  <li><b>Irreversibility and speed.</b> Settlement is instant, and funds are layered through mule accounts within minutes, so post-transaction recovery is hard.</li>
-  <li><b>Warnings are generic and frequent.</b> Blanket messages (“never share your OTP”) are shown to everyone, all the time, and people habituate to them <c>akhawe2013, vance2018</c>.</li>
-</ol>
-<h3>Why it has not been solved yet</h3>
-<ul>
-  <li><b>Data is siloed and sensitive.</b> Fraud labels sit inside individual banks and PSPs; sharing them is constrained by privacy law and competition. Research on real payment fraud data is therefore scarce outside large institutions.</li>
-  <li><b>False positives are expensive.</b> With 800 million payments a day, even a 1 % false-alarm rate would interrupt millions of genuine payments. Banks therefore tune systems conservatively, and many risky payments pass.</li>
-  <li><b>Latency constraints.</b> Real-time payment rails leave very little time for scoring; complex models must answer in milliseconds.</li>
-  <li><b>Explainability.</b> Black-box scores are hard to justify to customers, regulators and analysts; rule-only systems are explainable but miss novel patterns.</li>
-  <li><b>Adversaries adapt.</b> Scam scripts change monthly. Static rules decay, and models trained on last year's data drift <c>dalpozzolo2018</c>.</li>
-</ul>
+<p>We think the problem comes from five things working together.</p>
+<p><b>Psychology.</b> Scams use authority, urgency and fear <c>stajano2011</c>. A person who has just been told they will be arrested is not going to calmly check the payee's details.</p>
+<p><b>Authentication is not intent.</b> The UPI PIN proves the account holder is present. It says nothing about whether they understand where the money is going.</p>
+<p><b>The payer has less information than the platform.</b> The system knows that an account is two days old or has been reported three times. The payer only sees a name.</p>
+<p><b>Payments are instant and final.</b> Money is passed through mule accounts within minutes, so recovery after the fact is hard.</p>
+<p><b>Warnings are generic.</b> Messages like "never share your OTP" are shown to everyone all the time, and studies show people learn to ignore warnings they see often <c>akhawe2013, vance2018</c>.</p>
+<p>It has not been solved yet for practical reasons. Fraud data sits inside each bank and is sensitive, so it is hard to share or research. False alarms are expensive at UPI's volume: UPI averaged about 66 crore payments a day in FY2025-26, so even a 1 % false alarm rate would interrupt around 66 lakh genuine payments every day. Scoring has to finish in milliseconds. Black-box scores are hard to justify to customers, while rule-only systems miss new patterns. And scammers keep changing their scripts, so models trained on old data slowly go stale <c>dalpozzolo2018</c>.</p>
 
-<h2>Who Is Affected and How</h2>
-<table>
-  <caption>Stakeholders affected by UPI scams</caption>
-  <tr><th style="width:22%">Stakeholder</th><th>How they are affected</th></tr>
-  <tr><td>Senior citizens</td><td>Targeted by “bank”, “pension” and “digital arrest” scams; often lose savings; low familiarity with app warnings.</td></tr>
-  <tr><td>Students and young earners</td><td>Targeted by job, task and investment scams; small repeated payments; peer embarrassment discourages reporting.</td></tr>
-  <tr><td>Small merchants</td><td>Fake buyer “refund” and QR-code scams; their legitimate collection patterns (many payers) can be mistaken for mule activity by naive systems.</td></tr>
-  <tr><td>First-time digital users</td><td>Less able to judge legitimacy of requests; rely on caller instructions.</td></tr>
-  <tr><td>Banks and payment apps</td><td>Customer-support load, reputational damage, regulatory scrutiny, and (in some jurisdictions) reimbursement liability <c>uk_psr</c>.</td></tr>
-  <tr><td>Law enforcement</td><td>Very high complaint volumes, cross-state mule networks, slow recovery.</td></tr>
-  <tr><td>Society</td><td>Loss of trust in digital payments, which slows financial inclusion.</td></tr>
-</table>
+<h2>Who Is Affected</h2>
+<p>Senior citizens are the main target of "bank", "pension" and "digital arrest" calls and often lose savings. Students and young earners get pulled into job and task scams, usually in small repeated payments, and many are too embarrassed to report it. Small shopkeepers face fake refund and QR code tricks, and their normal pattern of receiving money from many people can look like a mule account to a careless system. Banks and payment apps carry the support load and the damage to their reputation, and in some countries they now have to refund victims <c>uk_psr</c>. The police deal with huge complaint volumes across states. Over time, all of this makes people trust digital payments less.</p>

@@ -1,7 +1,8 @@
 <h1>System Design and Technical Details</h1>
 
 <h2>System Architecture</h2>
-<p>ScamShield is a service-oriented system of six containers orchestrated with Docker Compose <c>docker</c> (Figure 8.1). The design separates the <b>hot path</b> — everything that must happen before the payer sees a decision — from <b>asynchronous work</b> that must not slow the payer down (alerts, baselines, reputation, metrics, retraining).</p>
+<p>ScamShield runs as six Docker containers started together with Docker Compose <c>docker</c> (Figure 8.1). The <b>web</b> container is the Next.js front end. It also forwards <span class="mono">/api</span> calls to the API, so the login cookie stays on the same site. The <b>api</b> container is a stateless Express server that handles login, payments, alerts and admin functions. The <b>worker</b> uses the same code but runs background jobs. The <b>ml</b> container is a FastAPI service that trains the model on first start and then answers scoring requests. <b>PostgreSQL</b> is the main database and <b>Redis</b> holds fast-changing state like counters, caches, rate limits and job queues.</p>
+<p>The main design idea was to keep the "hot path", everything needed before the payer sees a result, as short as possible. Anything that does not change the current decision (creating alerts, refreshing baselines, updating payee reputation, metrics, retraining) goes to a queue and is done by the worker.</p>
 <figure>
 <pre class="mermaid">
 flowchart TB
@@ -20,37 +21,24 @@ flowchart TB
   K -- "/train · /model · /evaluation" --> M
   R -- "pub/sub → Server-Sent Events" --> A
 </pre>
-  <figcaption>System architecture of ScamShield</figcaption>
+  <figcaption>System architecture</figcaption>
 </figure>
-<table class="keep">
-  <caption>Containers and their responsibilities</caption>
-  <tr><th style="width:14%">Container</th><th>Responsibility</th></tr>
-  <tr><td>web</td><td>Next.js App Router UI; proxies <span class="mono">/api/*</span> to the API so that the session cookie stays same-origin.</td></tr>
-  <tr><td>api</td><td>Stateless Express API: authentication, payment check/confirm, alerts, admin; runs database migrations and an idempotent seed on start.</td></tr>
-  <tr><td>worker</td><td>Same image as the API running BullMQ consumers: alerts, baseline refresh, payee reputation, metrics roll-up, model sync and retraining.</td></tr>
-  <tr><td>ml</td><td>FastAPI service; on first boot generates synthetic data, trains, calibrates and evaluates the model, then serves <span class="mono">/score</span>.</td></tr>
-  <tr><td>postgres</td><td>System of record (PostgreSQL 16).</td></tr>
-  <tr><td>redis</td><td>Hot state: sliding-window counters, caches, idempotency records, rate limits, circuit breaker, job queues, pub/sub (Redis 7).</td></tr>
-</table>
 
-<h2>Technology Stack and Justification</h2>
-<table>
-  <caption>Technology choices and justification</caption>
-  <tr><th style="width:19%">Layer</th><th style="width:22%">Choice</th><th>Why we chose it (and what we rejected)</th></tr>
-  <tr><td>Front end</td><td>Next.js 15, React 19, Tailwind CSS 4, Radix UI, TanStack Query, Recharts <c>nextjs</c></td><td>Server-side rewrites keep cookies same-origin (no token in JavaScript); accessible Radix primitives for modal dialogs that cannot be dismissed accidentally; Recharts for the evaluation charts. A plain SPA would have needed CORS cookies.</td></tr>
-  <tr><td>API</td><td>Node.js + Express + TypeScript <c>express</c></td><td>The rules, features and reason catalogue are shared TypeScript used by both the web and the API, so one language end-to-end; Express is minimal and well understood for a viva.</td></tr>
-  <tr><td>Validation</td><td>zod</td><td>One schema gives runtime validation and TypeScript types; also generates OpenAPI docs.</td></tr>
-  <tr><td>ORM / DB</td><td>Prisma 6 + PostgreSQL 16 <c>prisma, postgres</c></td><td>ACID transactions and conditional updates for money movement; declarative schema and migrations. A document store was rejected because the ledger needs transactions.</td></tr>
-  <tr><td>Hot state</td><td>Redis 7 <c>redis</c></td><td>Sorted sets give O(log n) sliding windows for velocity and distinct-sender counts; atomic SET NX for idempotency and breaker probes; pub/sub for live alerts.</td></tr>
-  <tr><td>Queues</td><td>BullMQ <c>bullmq</c></td><td>Retries with back-off on Redis we already run; Kafka would be over-engineered at this scale (noted as future work).</td></tr>
-  <tr><td>ML service</td><td>Python, FastAPI, scikit-learn <c>fastapi, pedregosa2011</c></td><td>scikit-learn's HistGradientBoosting is fast, handles unscaled features and needs no GPU; FastAPI gives typed request validation. XGBoost/LightGBM <c>chen2016, ke2017</c> and SHAP <c>lundberg2017</c> were left out to keep the container small; occlusion explanations are used instead.</td></tr>
-  <tr><td>Live updates</td><td>Server-Sent Events</td><td>One-way server → analyst stream over plain HTTP; simpler than WebSockets and works through the Next.js proxy.</td></tr>
-  <tr><td>Testing</td><td>Vitest, supertest, pytest, Playwright <c>playwright</c>, autocannon</td><td>Integration tests against real PostgreSQL/Redis; browser end-to-end tests; HTTP load tests.</td></tr>
-  <tr><td>Deployment</td><td>Docker Compose</td><td>One command (<span class="mono">make demo</span>) starts the whole stack identically on every team member's machine.</td></tr>
+<h2>Technology Stack</h2>
+<table class="keep">
+  <caption>Technology choices</caption>
+  <tr><th style="width:17%">Part</th><th style="width:25%">What we used</th><th>Why</th></tr>
+  <tr><td>Front end</td><td>Next.js 15, React 19, Tailwind, Radix UI, Recharts <c>nextjs</c></td><td>Server-side forwarding keeps cookies same-origin; Radix gives accessible modal dialogs; Recharts for the evaluation charts.</td></tr>
+  <tr><td>API</td><td>Node.js, Express, TypeScript, zod <c>express</c></td><td>The rules and features are shared TypeScript code used by both web and API. zod validates input and gives us types.</td></tr>
+  <tr><td>Database</td><td>PostgreSQL 16 with Prisma <c>postgres, prisma</c></td><td>Money needs proper transactions and conditional updates. Prisma handles the schema and migrations.</td></tr>
+  <tr><td>Fast state</td><td>Redis 7 <c>redis</c></td><td>Sorted sets make sliding-window counts easy; atomic SET NX for idempotency; pub/sub for live alerts.</td></tr>
+  <tr><td>Queues</td><td>BullMQ <c>bullmq</c></td><td>Retries with back-off, and it runs on the Redis we already had. Kafka would be too much for this size.</td></tr>
+  <tr><td>ML</td><td>Python, FastAPI, scikit-learn <c>fastapi, pedregosa2011</c></td><td>HistGradientBoosting is quick to train, needs no GPU and handles raw features. We skipped XGBoost, LightGBM and SHAP <c>chen2016, ke2017, lundberg2017</c> to keep the container small.</td></tr>
+  <tr><td>Testing</td><td>Vitest, supertest, pytest, Playwright <c>playwright</c>, autocannon</td><td>Integration tests on real PostgreSQL and Redis, browser tests and a load test.</td></tr>
 </table>
 
 <h2>Data Flow Diagrams</h2>
-<p>Figure 8.2 is the context diagram (Level 0): ScamShield as a single process with its external entities. Figure 8.3 decomposes it into its main processes and data stores (Level 1).</p>
+<p>The Level 0 diagram (Figure 8.2) shows ScamShield as one process with its three kinds of users. The Level 1 diagram (Figure 8.3) breaks it into six processes: authenticate, build features, score risk, intervene and settle the payment, raise alerts and update reputation, and review and learn.</p>
 <figure class="m-small">
 <pre class="mermaid">
 flowchart TB
@@ -62,7 +50,7 @@ flowchart TB
   S -- "metrics, evaluation,<br/>health" --> AD
   S -- "debit / credit<br/>(simulated ledger)" --> L["Payment ledger<br/>(internal, synthetic)"]
 </pre>
-  <figcaption>Level-0 data flow diagram (context diagram)</figcaption>
+  <figcaption>Level 0 data flow diagram</figcaption>
 </figure>
 <figure>
 <pre class="mermaid">
@@ -88,11 +76,11 @@ flowchart TB
   P6 -- "label, confirmed fraud" --> D1
   P6 -- "labels for retraining" --> D3
 </pre>
-  <figcaption>Level-1 data flow diagram</figcaption>
+  <figcaption>Level 1 data flow diagram</figcaption>
 </figure>
 
 <h2>UML Diagrams</h2>
-<h3>Use case diagram</h3>
+<p>Figure 8.4 shows the use cases for each role. Figure 8.5 shows the order of calls when a payment is checked and confirmed. Figure 8.6 shows the main classes involved in making a decision. A transaction starts as PENDING (or BLOCKED if the payee is a confirmed scam account) and ends as COMPLETED or CANCELLED.</p>
 <figure>
 <pre class="mermaid">
 flowchart LR
@@ -120,8 +108,6 @@ flowchart LR
 </pre>
   <figcaption>Use case diagram</figcaption>
 </figure>
-
-<h3>Sequence diagram: checking and confirming a payment</h3>
 <figure class="tall">
 <pre class="mermaid">
 sequenceDiagram
@@ -159,10 +145,8 @@ sequenceDiagram
   Q->>P: alert upsert, baseline, reputation
   Q->>R: publish live event → SSE to analysts
 </pre>
-  <figcaption>Sequence diagram of the two-phase payment</figcaption>
+  <figcaption>Sequence diagram of checking and confirming a payment</figcaption>
 </figure>
-
-<h3>Class diagram (domain and services)</h3>
 <figure>
 <pre class="mermaid">
 classDiagram
@@ -216,24 +200,7 @@ classDiagram
   MlClient --> CircuitBreaker
   FeatureBuilder ..> Features
 </pre>
-  <figcaption>Class diagram of the risk-decision components</figcaption>
-</figure>
-
-<h3>State diagram: transaction life cycle</h3>
-<figure class="m-small">
-<pre class="mermaid">
-stateDiagram-v2
-  direction LR
-  [*] --> PENDING: check (score ≤ HIGH, payee not confirmed fraud)
-  [*] --> BLOCKED: check (payee confirmed fraud)
-  PENDING --> PENDING: questionnaire re-score
-  PENDING --> COMPLETED: confirm (valid token, cooldown, retype)
-  PENDING --> CANCELLED: cancel / cancel and report
-  COMPLETED --> [*]
-  CANCELLED --> [*]
-  BLOCKED --> [*]
-</pre>
-  <figcaption>State diagram of a transaction</figcaption>
+  <figcaption>Class diagram of the risk decision components</figcaption>
 </figure>
 
 <h2>Database Schema</h2>
@@ -257,117 +224,56 @@ erDiagram
   LedgerEntry { uuid id PK uuid userId FK uuid transactionId FK decimal amount decimal balanceAfter }
   PayeeReport { uuid id PK uuid reporterId FK string payeeUpiId string reason }
 </pre>
-  <figcaption>Entity–relationship diagram (configuration tables omitted)</figcaption>
+  <figcaption>Entity relationship diagram (configuration tables not shown)</figcaption>
 </figure>
-<table>
-  <caption>Database tables</caption>
-  <tr><th style="width:17%">Table</th><th>Purpose and key columns</th><th style="width:28%">Constraints / indexes</th></tr>
-  <tr><td>User</td><td>Account, role (USER/ANALYST/ADMIN), UPI ID, balance (Decimal 12,2), hashed registered device</td><td>unique email, unique upiId</td></tr>
-  <tr><td>Payee</td><td>Every UPI ID ever paid: first seen, report count, reputation 0–100, confirmedFraudAt</td><td>unique upiId</td></tr>
-  <tr><td>Transaction</td><td>Payment request: amount, payee, status (PENDING/BLOCKED/COMPLETED/CANCELLED), label (FRAUD/SAFE/UNKNOWN), device hash, IP</td><td>unique (userId, idempotencyKey); (userId, createdAt); (payeeUpiId, createdAt); (status)</td></tr>
-  <tr><td>RiskDecision</td><td>Rule, ML, final and pre-context scores; band; blocked; degraded; reasons, features, ML top features, context answers (JSON); model version; latency</td><td>unique transactionId; (band, createdAt)</td></tr>
-  <tr><td>Alert</td><td>Analyst work item for MEDIUM/HIGH decisions; status, outcome, notes</td><td>unique decisionId; (status, createdAt)</td></tr>
-  <tr><td>LedgerEntry</td><td>Double-entry record of each balance movement with resulting balance</td><td>(userId, createdAt)</td></tr>
-  <tr><td>PayeeReport</td><td>User report against a payee</td><td>unique (reporterId, payeeUpiId)</td></tr>
-  <tr><td>RuleConfig</td><td>Per rule: enabled, weight, parameters (JSON)</td><td>key = rule code</td></tr>
-  <tr><td>Setting</td><td>Runtime settings, e.g. blend weights and thresholds</td><td>key</td></tr>
-  <tr><td>ModelRun</td><td>Registered model versions with metrics; one active</td><td>unique version</td></tr>
-  <tr><td>AuditLog</td><td>Actor, action, entity, metadata for administrative actions</td><td>(createdAt)</td></tr>
-</table>
-<p>In addition, Redis holds the hot state listed in Appendix C (Table C.1): sorted sets for 10-minute and 1-hour velocity windows and 24-hour distinct senders per payee, hashes for 30-day baselines, sets of known payees and devices, idempotency records (24 h), rate-limit counters and circuit-breaker keys.</p>
+<p>The main tables are <b>User</b> (role, UPI ID, balance, hashed registered device), <b>Payee</b> (every UPI ID ever paid, with first-seen date, report count, reputation and a confirmed-fraud date), <b>Transaction</b> (amount, payee, status, FRAUD/SAFE label, idempotency key), <b>RiskDecision</b> (rule, ML and final scores, band, reasons and features as JSON, model version, latency), <b>Alert</b>, <b>LedgerEntry</b> (every balance change with the balance after it) and <b>PayeeReport</b>. Smaller tables hold rule settings, thresholds, model versions and the audit log. There is a unique index on (user, idempotency key) so a payment cannot be created twice, and indexes on user and payee by time for the history lookups. The Redis keys are listed in Appendix C.</p>
 
 <h2>APIs and Integrations</h2>
-<p>The API is documented with OpenAPI 3 and served interactively at <span class="mono">/docs</span>. Errors share one shape: <span class="mono">{"error": {"code", "message", "details"}}</span>.</p>
-<table>
-  <caption>Principal API endpoints</caption>
-  <tr><th style="width:9%">Method</th><th style="width:31%">Path</th><th style="width:10%">Role</th><th>Purpose</th></tr>
-  <tr><td>POST</td><td>/api/auth/register, /login, /logout</td><td>public</td><td>Create wallet; sign in (rate-limited); sign out</td></tr>
-  <tr><td>GET</td><td>/api/wallet, /api/transactions, /api/safety</td><td>user</td><td>Balance and spending; history with risk band; warnings and reports</td></tr>
-  <tr><td>GET</td><td>/api/payees/lookup?upi=</td><td>user</td><td>Payee name, age, reports, confirmed-fraud flag, paid-before</td></tr>
-  <tr><td>POST</td><td>/api/payments/check</td><td>user</td><td><b>Phase 1:</b> score a payment (idempotent); returns score, band, reasons, checkToken</td></tr>
-  <tr><td>POST</td><td>/api/payments/:id/context</td><td>user</td><td>Questionnaire answers → re-score (once)</td></tr>
-  <tr><td>POST</td><td>/api/payments/confirm</td><td>user</td><td><b>Phase 2:</b> move money with checkToken (+ retyped UPI ID for HIGH)</td></tr>
-  <tr><td>POST</td><td>/api/payments/:id/cancel</td><td>user</td><td>Cancel, optionally report payee</td></tr>
-  <tr><td>GET</td><td>/api/alerts, /api/alerts/:id, /api/alerts/stream</td><td>analyst</td><td>Queue, detail, Server-Sent Events stream</td></tr>
-  <tr><td>POST</td><td>/api/alerts/:id/review</td><td>analyst</td><td>FRAUD / SAFE verdict with notes</td></tr>
-  <tr><td>GET/PUT</td><td>/api/admin/rules, /api/admin/thresholds</td><td>admin</td><td>Rule configuration; blend weights and bands</td></tr>
-  <tr><td>POST</td><td>/api/admin/rules/what-if</td><td>admin</td><td>Preview a draft configuration on labelled holdout sample</td></tr>
-  <tr><td>GET/POST</td><td>/api/admin/model, /model/retrain, /evaluation</td><td>admin</td><td>Active model; queue retraining; evaluation</td></tr>
-  <tr><td>POST</td><td>/api/admin/simulate/:scenario</td><td>admin</td><td>Run a scam scenario through the real pipeline</td></tr>
-  <tr><td>GET</td><td>/api/admin/metrics; /health; /ready</td><td>admin / public</td><td>Metrics; liveness; readiness</td></tr>
-  <tr><td>POST</td><td>ML: /score, /train, /reload</td><td>internal</td><td>Score 20 named features; retrain; reload model</td></tr>
+<p>The API is documented with OpenAPI and can be tried at <span class="mono">/docs</span>. Table 8.2 lists the main endpoints.</p>
+<table class="keep">
+  <caption>Main API endpoints</caption>
+  <tr><th style="width:38%">Endpoint</th><th style="width:10%">Role</th><th>Purpose</th></tr>
+  <tr><td class="mono">POST /api/auth/register, /login, /logout</td><td>public</td><td>Account and session</td></tr>
+  <tr><td class="mono">GET /api/wallet, /transactions, /safety</td><td>user</td><td>Balance, history, warnings and reports</td></tr>
+  <tr><td class="mono">POST /api/payments/check</td><td>user</td><td>Step 1: score the payment, return band, reasons and token</td></tr>
+  <tr><td class="mono">POST /api/payments/:id/context</td><td>user</td><td>Answers to the three questions, re-score</td></tr>
+  <tr><td class="mono">POST /api/payments/confirm</td><td>user</td><td>Step 2: move the money</td></tr>
+  <tr><td class="mono">POST /api/payments/:id/cancel</td><td>user</td><td>Cancel, optionally report</td></tr>
+  <tr><td class="mono">GET /api/alerts, /alerts/stream; POST /alerts/:id/review</td><td>analyst</td><td>Alert queue, live stream (SSE), verdict</td></tr>
+  <tr><td class="mono">/api/admin/rules, /thresholds, /model, /simulate, /metrics</td><td>admin</td><td>Rules, model, simulator, health</td></tr>
+  <tr><td class="mono">ML: POST /score, /train</td><td>internal</td><td>Score 20 features, retrain</td></tr>
 </table>
-<p><b>Confirm status codes.</b> 200 completed; 401 invalid or tampered check token; 403 payee is a confirmed scam account; 409 already processed (double tap or replay); 422 retyped UPI ID did not match (also counted as a failed attempt); 425 safety pause still running; 400 insufficient balance.</p>
-<p><b>Integrations in a real deployment.</b> ScamShield would sit inside a PSP's or bank's UPI app back end: the app calls <span class="mono">check</span> before invoking the UPI collect/pay flow, and <span class="mono">confirm</span> is replaced by the institution's own UPI pay call guarded by the check token. Optional external signals: DoT FRI for the payee's mobile number, the I4C Suspect Registry, and the bank's own FRM case system.</p>
+<p>Confirm returns 401 if the token is invalid or tampered with, 403 if the payee is a confirmed scam, 409 if the payment was already processed, 422 if the retyped UPI ID is wrong, 425 if the pause is not over yet, and 400 if the balance is too low. In a real bank, the app would call <i>check</i> before starting the normal UPI payment, and the bank's own UPI call would take the place of our <i>confirm</i>.</p>
 
 <h2>Algorithms and Business Rules</h2>
-<h3>Feature computation</h3>
-<p>Twenty features are computed from a common <span class="mono">FeatureInput</span> by identical TypeScript and Python implementations driven by a shared JSON specification; 300 randomised parity cases guarantee that training and serving compute exactly the same values. Key definitions:</p>
-<ul>
-  <li><b>Amount z-score</b> against the user's 30-day completed payments: <i>z = (a − μ) / max(σ, 0.1μ, 50)</i>, clamped to [−5, 20], and 0 with fewer than three past payments. The floor on σ prevents users with very regular payments from producing explosive z-scores.</li>
-  <li><b>Usual hour</b> is a circular mean: the mean angle of <i>2πh/24</i> over past payments, so that 23:00 and 01:00 average to midnight rather than noon. The deviation is the circular distance in hours.</li>
-  <li><b>Velocity</b> counts completed payments in the previous 10 minutes and 1 hour from Redis sorted sets; <b>split payments</b> counts payments to the same payee in the last hour within 20 % of the amount.</li>
-  <li><b>Mule signal</b>: distinct other users who paid the payee in the last 24 hours; <b>payee age</b>: days since the payee was first seen.</li>
-  <li><b>Context</b>: three binary questionnaire features (0 until answered).</li>
-</ul>
+<h3>Features</h3>
+<p>The 20 features are computed by the same logic in TypeScript (for serving) and Python (for training), both reading one shared JSON spec. A test with 300 random inputs checks that both give exactly the same values. The amount z-score compares the payment with the user's last 30 days, <i>z = (a − μ) / max(σ, 0.1μ, 50)</i>, limited to the range −5 to 20. The floor on σ stops users with very regular payments from getting huge z-scores. The user's usual payment hour is a circular mean, so 11 pm and 1 am average to midnight and not noon. Velocity counts payments in the last 10 minutes and 1 hour. The mule signal counts how many different people paid the payee in the last 24 hours. The three questionnaire answers are features too, and they stay 0 until answered.</p>
 <h3>Rules</h3>
-<table>
-  <caption>Default rules (weights and parameters are editable at runtime)</caption>
-  <tr><th style="width:26%">Rule</th><th>Condition</th><th class="n" style="width:12%">Points</th></tr>
-  <tr><td>NEW_PAYEE</td><td>User has never completed a payment to this UPI ID</td><td class="n">15</td></tr>
-  <tr><td>AMOUNT_SPIKE</td><td>z-score ≥ 3 or amount ≥ 2 × 30-day maximum</td><td class="n">25</td></tr>
+<table class="keep">
+  <caption>Default rules (all editable at runtime)</caption>
+  <tr><th style="width:28%">Rule</th><th>Fires when</th><th class="n" style="width:10%">Points</th></tr>
+  <tr><td>NEW_PAYEE</td><td>User has never paid this UPI ID</td><td class="n">15</td></tr>
+  <tr><td>AMOUNT_SPIKE</td><td>z-score ≥ 3, or amount ≥ 2 × 30-day maximum</td><td class="n">25</td></tr>
   <tr><td>DRAIN_BALANCE</td><td>Amount ≥ 80 % of balance</td><td class="n">20</td></tr>
   <tr><td>VELOCITY_BURST</td><td>≥ 3 payments in 10 min or ≥ 6 in 1 h</td><td class="n">25</td></tr>
   <tr><td>SPLIT_PAYMENTS</td><td>≥ 2 similar amounts to the same payee in 1 h</td><td class="n">20</td></tr>
-  <tr><td>ODD_HOUR</td><td>Night (23:00–05:59 IST) and ≥ 4 h from usual hour</td><td class="n">10</td></tr>
-  <tr><td>MULE_PATTERN</td><td>≥ 5 distinct senders in 24 h and payee age ≤ 30 days</td><td class="n">30</td></tr>
-  <tr><td>REPORTED_PAYEE</td><td>≥ 1 report (+5 per extra report)</td><td class="n">25–40</td></tr>
-  <tr><td>NEW_DEVICE</td><td>Device never used for a completed payment by this user</td><td class="n">15</td></tr>
-  <tr><td>REPEATED_FAILED_ATTEMPTS</td><td>≥ 3 failed logins / verifications in 15 min</td><td class="n">20</td></tr>
-  <tr><td>CONTEXT_PRESSURE</td><td>Urged to pay (25) + asked for OTP / app (35) + unknown recipient (10)</td><td class="n">0–70</td></tr>
+  <tr><td>ODD_HOUR</td><td>Between 11 pm and 6 am, and ≥ 4 h from usual hour</td><td class="n">10</td></tr>
+  <tr><td>MULE_PATTERN</td><td>≥ 5 different senders in 24 h and payee ≤ 30 days old</td><td class="n">30</td></tr>
+  <tr><td>REPORTED_PAYEE</td><td>At least one report (+5 per extra, max 40)</td><td class="n">25+</td></tr>
+  <tr><td>NEW_DEVICE</td><td>Device never used for a payment by this user</td><td class="n">15</td></tr>
+  <tr><td>REPEATED_FAILED_ATTEMPTS</td><td>≥ 3 failed logins or re-types in 15 min</td><td class="n">20</td></tr>
+  <tr><td>CONTEXT_PRESSURE</td><td>Urged to pay (25), asked for OTP/app (35), unknown recipient (10)</td><td class="n">0–70</td></tr>
 </table>
-<p class="eq">RuleScore = min(100, Σ<sub>enabled rules</sub> weight<sub>r</sub> × points<sub>r</sub>)</p>
-
-<h3>Machine-learning model</h3>
-<p>The model is scikit-learn's <span class="mono">HistGradientBoostingClassifier</span> — a histogram-based gradient-boosted tree ensemble <c>friedman2001</c> — with 300 iterations, learning rate 0.08, 31 leaves per tree, L2 regularisation 1.0 and balanced class weights. Class weighting and boosting distort probabilities, so the raw scores are calibrated with <b>isotonic regression</b> <c>zadrozny2002, niculescu2005</c> fitted on a separate, later time slice. The calibrated probability × 100 is the ML score. A class-weighted logistic regression is trained as a sanity-check baseline.</p>
-<p><b>Explanations by occlusion.</b> For each decision the service builds a batch of 21 rows — the original feature vector and 20 copies in which one feature is reset to the value of a typical legitimate payment — and predicts them in one call. The drop in fraud probability for each feature is its contribution; the top three (if above 0.5 percentage points) are returned to analysts. This is model-agnostic and costs one batched prediction.</p>
-
-<h3>Blending, bands and overrides</h3>
-<p class="eq">FinalScore = clamp<sub>[0,100]</sub>( w<sub>R</sub> · RuleScore + w<sub>M</sub> · MLScore ),   w<sub>R</sub> = 0.4, w<sub>M</sub> = 0.6</p>
-<ul>
-  <li>If the ML service is unavailable, FinalScore = RuleScore and the decision is marked <i>degraded</i>.</li>
-  <li>Bands: LOW if FinalScore &lt; 35; MEDIUM if 35 ≤ FinalScore &lt; 70; HIGH if FinalScore ≥ 70.</li>
-  <li>Override 1 — payee confirmed as fraud by an analyst: FinalScore ← max(FinalScore, 95); payment BLOCKED.</li>
-  <li>Override 2 — user reports being asked for an OTP or to install an app: FinalScore ← max(FinalScore, 70).</li>
-  <li>Questionnaire re-score: FinalScore<sub>new</sub> ← max(FinalScore<sub>new</sub>, FinalScore<sub>before</sub>) — answers can never lower the score.</li>
-  <li>Reasons are ordered: overrides, then rule hits by points, then “matches known scam patterns” if MLScore ≥ 50. Users see the top three.</li>
-</ul>
-
-<h3>Resilience and consistency algorithms</h3>
-<ul>
-  <li><b>Circuit breaker</b> <c>nygard2018</c>: failures of the ML call are counted in Redis over a 30-second window; at five failures the breaker opens for 15 seconds (ML skipped). Afterwards a single probe request, elected with an atomic <span class="mono">SET NX</span> lock, closes the breaker on success or re-opens it on failure. Because the state lives in Redis, all API instances share it.</li>
-  <li><b>Idempotency</b> <c>kleppmann2017</c>: the Idempotency-Key is claimed with <span class="mono">SET NX</span> for 24 hours; a retry with the same key and body replays the stored response, a different body returns 422, and a concurrent duplicate returns 409. A unique database index is the second line of defence.</li>
-  <li><b>Atomic confirm</b>: in one database transaction, <span class="mono">UPDATE transaction SET status='COMPLETED' WHERE id=? AND status='PENDING'</span> (exactly one concurrent confirm can win) and <span class="mono">UPDATE user SET balance = balance − amt WHERE id=? AND balance ≥ amt</span> (balance can never go negative), followed by ledger entries. Any failure rolls back everything.</li>
-  <li><b>Check token</b>: an HS256 JSON Web Token <c>rfc7519</c> valid for 10 minutes, binding user, transaction, amount and payee, so a client cannot skip or alter the risk check.</li>
-</ul>
+<p>The rule score is the sum of points (each multiplied by its weight), capped at 100.</p>
+<h3>Model</h3>
+<p>We use scikit-learn's HistGradientBoostingClassifier, a gradient boosted tree model <c>friedman2001</c>, with 300 iterations, learning rate 0.08, 31 leaves per tree, L2 regularisation of 1.0 and balanced class weights. Class weighting pushes the probabilities too high, so we calibrate the output with isotonic regression <c>zadrozny2002, niculescu2005</c> on a separate, later slice of time. The ML score is the calibrated probability × 100. To explain a single decision we use occlusion. We make 20 copies of the payment, each with one feature reset to a typical genuine value, and see how much the fraud probability drops. All 21 rows are predicted in one call, so it is cheap.</p>
+<h3>Blending and overrides</h3>
+<p class="eq">Final score = 0.4 × rule score + 0.6 × ML score   (rule score alone if ML is unavailable)</p>
+<p>A final score below 35 is LOW, 35 to 69 is MEDIUM and 70 or above is HIGH. If an analyst has confirmed the payee as a scam, the score is raised to at least 95 and the payment is blocked. If the user says they were asked for an OTP or to install an app, the score is raised to at least 70. After the questionnaire, the new score is never allowed to be lower than the old one. The reasons are ordered with overrides first, then rules by points, then "matches known scam patterns" if the ML score is 50 or more.</p>
+<h3>Reliability</h3>
+<p>The ML call has a 150 ms timeout and a circuit breaker <c>nygard2018</c>. If it fails 5 times within 30 seconds, we stop calling it for 15 seconds and use rules only. After that, one test request (chosen with a Redis lock) decides whether to start calling it again. The breaker state is in Redis, so all API instances share it. The Idempotency-Key is claimed in Redis with SET NX for 24 hours <c>kleppmann2017</c>: a repeat with the same body gets the stored response, a different body gets 422, and a duplicate arriving at the same moment gets 409. Confirm runs in one database transaction with two conditional updates. The first, <span class="mono">status = 'PENDING'</span>, means only one confirm can win. The second, <span class="mono">balance ≥ amount</span>, means the balance can never go negative. If anything fails, everything is rolled back.</p>
 
 <h2>Synthetic Data Generation</h2>
-<p>Because real labelled fraud data is not available to students, we wrote a seeded generator (default seed 42) that simulates 150 users for 120 days (30-day burn-in, 90 days written out, ≈ 165,000 payments). Its design goal is <i>realism that makes detection hard</i>, including legitimate behaviour that looks suspicious.</p>
-<table class="keep">
-  <caption>Synthetic population: user personas</caption>
-  <tr><th>Persona</th><th class="n">Users</th><th class="n">Payments/day</th><th class="n">Typical amount</th><th>Active hours (IST)</th></tr>
-  <tr><td>Salaried</td><td class="n">50</td><td class="n">~9</td><td class="n">₹260</td><td>7–10, 12–15, 18–23</td></tr>
-  <tr><td>Student</td><td class="n">40</td><td class="n">~7</td><td class="n">₹120</td><td>10–24 and some after midnight</td></tr>
-  <tr><td>Shopkeeper</td><td class="n">30</td><td class="n">~25</td><td class="n">₹900</td><td>8–22</td></tr>
-  <tr><td>Senior citizen</td><td class="n">30</td><td class="n">~3</td><td class="n">₹400</td><td>7–19</td></tr>
-</table>
-<p><b>Hard negatives</b> include monthly rent of up to ₹25,000, two festival windows (one inside the holdout) with larger and more frequent payments and pop-up stalls collecting from many people, first purchases at new merchants (₹8,000–45,000), shopkeeper supplier batches, night-owl students, phone upgrades (new devices) and login typos. 1,500 merchants follow a Zipf popularity distribution, and 20 % open during the simulation.</p>
-<table class="keep">
-  <caption>Synthetic fraud scenarios (≈ 2.4 % of payments overall)</caption>
-  <tr><th style="width:19%">Scenario</th><th>Story</th><th style="width:36%">Signals</th></tr>
-  <tr><td>Impersonation</td><td>Fake bank, KYC desk, police or buyer pressures the victim</td><td>New payee; amount 3–40× usual; evenings; follow-up “deposits”; pressure answers</td></tr>
-  <tr><td>Mule collection</td><td>One account collects a fixed fee from 10–28 victims in 6–36 hours</td><td>Many distinct senders; new or bought account</td></tr>
-  <tr><td>Velocity drain</td><td>Remote-access app empties the account</td><td>4–9 similar payments in minutes to 1–2 new payees; OTP/app answers</td></tr>
-  <tr><td>Account takeover</td><td>Stolen credentials</td><td>2–6 failed logins; new device; mostly at night; most of balance</td></tr>
-</table>
-<p>Scam accounts are not all new: 30–40 % are 60–900 days old, as bought or rented accounts would be. Victims report the payee 10–50 % of the time, 1–48 hours later. Features are computed by replaying events in time order with no look-ahead, and fraud-labelled payments are excluded from baselines, exactly as in the live API. The data is split <b>by time</b>: first 60 % for training, next 15 % for calibration, last 25 % as the holdout.</p>
+<p>Since we had no real fraud data, we wrote a generator with a fixed seed (42). It simulates 150 users of the four persona types from Chapter 3 (50 salaried, 40 students, 30 shopkeepers, 30 seniors) over 120 days. The first 30 days are only used to build up history, and the remaining 90 days give about 165,000 payments. There are 1,500 merchants with a Zipf popularity curve, and 20 % of them open during the simulation.</p>
+<p>We spent a lot of effort on genuine payments that look suspicious, because without them any detector looks better than it is. These include rent of up to ₹25,000 once a month, two festival periods with bigger and more frequent payments and pop-up stalls paid by many people, first purchases from new shops, shopkeeper supplier batches, students paying late at night, new phones and login typos. About 2.4 % of payments are fraud, spread over four scenarios: impersonation (new payee, amount 3 to 40 times usual, follow-up "deposits"), mule collection (one account collecting a fixed fee from 10 to 28 victims in 6 to 36 hours), velocity drain (4 to 9 similar payments in minutes after a remote-access app is installed) and account takeover (failed logins, a new device, mostly at night, most of the balance). Some scam accounts are old (30 to 40 % are 60 to 900 days old), like bought or rented accounts would be. Victims report the payee 10 to 50 % of the time.</p>
+<p>Events are replayed in time order, so each feature only uses what was known before that payment. The data is split by time: the first 60 % for training, the next 15 % for calibration and the last 25 % for testing. A random split would leak future behaviour into training.</p>
