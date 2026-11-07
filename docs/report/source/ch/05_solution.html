@@ -1,0 +1,89 @@
+<h1>Proposed Solution</h1>
+
+<h2>Solution Overview</h2>
+<p>ScamShield inserts a risk check between “the user presses Pay” and “the money moves”. A payment is a two-phase operation: <b>check</b>, which scores the payment and never moves money, and <b>confirm</b>, which moves the money only if the client presents a valid, short-lived check token and has satisfied any intervention the risk band requires. Figure 5.1 shows the end-to-end flow.</p>
+<figure>
+<pre class="mermaid">
+flowchart TB
+  A["Payer enters<br/>payee + amount"] --> B["POST /payments/check"]
+  B --> C["Feature builder<br/>(Redis + Postgres)"]
+  C --> D["11 rules"]
+  C --> E["Calibrated ML<br/>(150 ms cap)"]
+  D --> F["Blend 0.4 / 0.6<br/>+ hard overrides"]
+  E --> F
+  F --> G{"Band"}
+  G -- "LOW: under 35" --> H["Pay instantly"]
+  G -- "MEDIUM: 35–69" --> I["Warning + reasons<br/>+ 3 questions"]
+  G -- "HIGH: 70+" --> J["Blocking screen<br/>10 s pause + retype UPI ID"]
+  I -- "answers re-score<br/>(can only rise)" --> G
+  I --> K["Confirm / cancel / report"]
+  J --> K
+  H --> L["POST /payments/confirm<br/>atomic debit + ledger"]
+  K --> L
+  F --> M["Alert → analyst console (SSE)"]
+  M --> N["FRAUD verdict → payee blocked<br/>for all users; label → retraining"]
+</pre>
+  <figcaption>ScamShield end-to-end flow from payment initiation to analyst feedback</figcaption>
+</figure>
+
+<h2>How the Solution Addresses the Problem</h2>
+<table>
+  <caption>Mapping root causes (Section 2.3) to ScamShield mechanisms</caption>
+  <tr><th style="width:32%">Root cause</th><th>ScamShield mechanism</th></tr>
+  <tr><td>Authentication is not intent verification</td><td>Every payment is scored on behavioural features, regardless of correct PIN/credentials.</td></tr>
+  <tr><td>The payer lacks information the platform has</td><td>Recipient card shows first-payment status and account age; reasons expose payee reports, mule pattern and amount anomaly.</td></tr>
+  <tr><td>Time pressure and fear</td><td>HIGH risk enforces a ten-second pause and retyping of the UPI ID; “Cancel and report” is the primary action.</td></tr>
+  <tr><td>Transaction data cannot see the phone call</td><td>Three scam-context questions; “asked for an OTP or to install an app” forces HIGH.</td></tr>
+  <tr><td>Habituation to generic warnings</td><td>No friction for LOW; at most three specific reasons; warnings tied to concrete facts.</td></tr>
+  <tr><td>Mule accounts reused across victims</td><td>Distinct-senders-in-24-hours signal; reports and analyst verdicts propagate to all users; confirmed scam accounts are blocked outright.</td></tr>
+  <tr><td>Static rules decay; models drift</td><td>Runtime-editable rules with what-if preview; analyst labels feed retraining; evaluation harness rerun on every training.</td></tr>
+</table>
+
+<h2>Key Features</h2>
+<h3>Core features (implemented)</h3>
+<table>
+  <caption>Core features implemented in the prototype</caption>
+  <tr><th style="width:5%">#</th><th style="width:28%">Feature</th><th>Description</th></tr>
+  <tr><td>1</td><td>Hybrid risk engine</td><td>20 features, 11 weighted rules, calibrated gradient-boosting model, blend (default 0.4 rules / 0.6 ML), bands LOW &lt; 35 ≤ MEDIUM &lt; 70 ≤ HIGH.</td></tr>
+  <tr><td>2</td><td>Hard overrides</td><td>Analyst-confirmed scam payee → score ≥ 95, blocked. OTP/app-install request → at least HIGH.</td></tr>
+  <tr><td>3</td><td>Plain-language reasons</td><td>Reason catalogue (keyed by locale) renders top three reasons for users and full technical detail for analysts.</td></tr>
+  <tr><td>4</td><td>Proportional interventions</td><td>LOW: none. MEDIUM: warning, reasons, questionnaire, “Verify recipient / Cancel / Continue anyway”. HIGH: blocking modal, 10 s cooldown, retype UPI ID.</td></tr>
+  <tr><td>5</td><td>Scam-context questionnaire</td><td>Three yes/no questions become features; the payment is re-scored; the score can only rise.</td></tr>
+  <tr><td>6</td><td>Per-user baselines</td><td>30-day mean, spread, maximum, usual hour (circular mean), known payees and devices; fraud-labelled payments excluded.</td></tr>
+  <tr><td>7</td><td>Payee reputation and reporting</td><td>Reports (once per user), distinct senders, account age and analyst verdicts combine into a reputation score.</td></tr>
+  <tr><td>8</td><td>Analyst console</td><td>Live alert queue over Server-Sent Events; score breakdown; reasons; ML contributions; payee history; FRAUD / SAFE verdicts with notes.</td></tr>
+  <tr><td>9</td><td>Admin console</td><td>Rules and thresholds editor with what-if preview; model and evaluation page; retraining; system health.</td></tr>
+  <tr><td>10</td><td>Scam simulator</td><td>Runs normal, impersonation, mule, velocity-drain and account-takeover scenarios through the real pipeline.</td></tr>
+  <tr><td>11</td><td>Resilience</td><td>150 ms ML timeout, Redis-backed circuit breaker, rules-only “degraded” mode, idempotent check, atomic and double-spend-safe confirm.</td></tr>
+  <tr><td>12</td><td>Evaluation harness</td><td>Rules vs ML vs hybrid on a time-based holdout: PR-AUC, precision, recall, FPR, confusion matrices, calibration, threshold sweep, per-scenario results.</td></tr>
+</table>
+<h3>Future features</h3>
+<ul>
+  <li>Graph-based mule-ring detection over the payee–sender network; device fingerprinting.</li>
+  <li>Integration of external risk signals: DoT FRI for the payee's phone number, I4C Suspect Registry.</li>
+  <li>Multilingual reasons and voice prompts (the catalogue is already keyed by locale).</li>
+  <li>“Trusted contact” confirmation for senior citizens on HIGH-risk payments.</li>
+  <li>Model registry with shadow and canary deployment; drift monitoring.</li>
+  <li>Federated learning across institutions to share patterns without sharing customer data.</li>
+</ul>
+
+<h2>Business Model and Monetisation</h2>
+<p>ScamShield is offered as a B2B service to payment-originating institutions. The end user never pays.</p>
+<table class="keep">
+  <caption>Revenue streams and pricing assumptions</caption>
+  <tr><th style="width:24%">Stream</th><th>Model</th><th style="width:28%">Indicative price (assumption)</th></tr>
+  <tr><td>Risk-scoring API</td><td>Pay per scored payment, with volume tiers</td><td>₹0.02 per check, falling to ₹0.01 above 100 million checks a month</td></tr>
+  <tr><td>Platform subscription</td><td>Analyst and admin consoles, simulator, evaluation reports</td><td>₹50,000–₹2,00,000 per month by seat count</td></tr>
+  <tr><td>Intervention SDK</td><td>Licensed UI components for Android/iOS/web wallets</td><td>Included with subscription</td></tr>
+  <tr><td>Implementation and tuning</td><td>One-time onboarding, data mapping, model calibration on the client's data</td><td>₹5–15 lakh per client</td></tr>
+  <tr><td>On-premise deployment</td><td>Annual licence for institutions with strict data-localisation needs</td><td>Custom</td></tr>
+</table>
+<p>The value to a customer is reduced fraud losses and support costs, protection from reputational damage, and evidence for regulators of risk-based controls. Where reimbursement liability exists (as in the UK since 2024 <c>uk_psr</c>), each prevented scam has a direct monetary value to the institution.</p>
+
+<h2>Go-to-Market Strategy</h2>
+<ol>
+  <li><b>Phase 1 — Pilot (months 0–6).</b> Partner with one cooperative or small finance bank, or a university/campus payment app. Run ScamShield in <i>shadow mode</i> (scoring without intervening) to measure precision and recall on real data, then enable interventions for a consenting user cohort.</li>
+  <li><b>Phase 2 — Early adopters (months 6–18).</b> Use pilot results as a case study; target cooperative banks through their federations and technology service providers, and smaller TPAPs. Offer the risk-scoring API with a free tier up to a monthly volume.</li>
+  <li><b>Phase 3 — Scale (months 18–36).</b> Seek inclusion in sandbox programmes (RBI Regulatory Sandbox, RBI Innovation Hub); integrate with core banking and UPI switch vendors as a plug-in; add regional languages.</li>
+</ol>
+<p><b>Channels:</b> direct sales to bank risk teams, partnerships with core-banking and UPI-switch vendors, fintech conferences and hackathons, and publication of our evaluation methodology to build credibility. <b>Positioning:</b> “the explainable, payer-facing layer that complements your existing fraud monitoring.”</p>

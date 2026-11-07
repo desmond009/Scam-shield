@@ -1,0 +1,134 @@
+<div class="titlepage">
+  <div class="tp-top">
+    <div style="font-size:12pt; letter-spacing:1pt;">A FINAL-YEAR PROJECT REPORT ON</div>
+    <div style="font-size:30pt; font-weight:bold; color:#1f3f73; margin-top:22pt;">ScamShield</div>
+    <div style="font-size:15pt; margin-top:8pt; line-height:1.35;">Pre-Transaction Scam Detection and Proportional Intervention<br>for UPI-Style Payments using a Hybrid Rules + Machine-Learning Engine</div>
+    <div style="margin-top:30pt; font-style:italic;">Submitted in partial fulfilment of the requirements for the award of the degree of</div>
+    <div style="font-size:14pt; font-weight:bold; margin-top:6pt;">Bachelor of Technology</div>
+    <div>in</div>
+    <div style="font-size:13pt;">Computer Science and Engineering / Electronics and Communication Engineering</div>
+  </div>
+  <div>
+    <div style="font-style:italic; margin-bottom:6pt;">Submitted by</div>
+    <table style="width:70%; margin:0 auto; font-size:12pt; border:none;">
+      <tr><td style="border:none;">Ansh</td><td style="border:none; text-align:right;">23BCS016</td></tr>
+      <tr><td style="border:none;">Harshit</td><td style="border:none; text-align:right;">23BCS054</td></tr>
+      <tr><td style="border:none;">Vijender</td><td style="border:none; text-align:right;">23BCS132</td></tr>
+      <tr><td style="border:none;">Sourabh</td><td style="border:none; text-align:right;">23BEC055</td></tr>
+    </table>
+    <div style="margin-top:18pt; font-style:italic;">Under the guidance of</div>
+    <div style="font-size:13pt; font-weight:bold;">Dr. Anushree Kini</div>
+  </div>
+  <div>
+    <div style="font-size:15pt; font-weight:bold;">Indian Institute of Information Technology Dharwad</div>
+    <div>Dharwad, Karnataka – 580009</div>
+    <div style="margin-top:6pt; font-size:13pt;">Academic Year 2026–27</div>
+  </div>
+</div>
+
+<div class="fm fmsec">
+  <div class="fmh">Certificate</div>
+  <p>This is to certify that the project report entitled <b>“ScamShield: Pre-Transaction Scam Detection and Proportional Intervention for UPI-Style Payments using a Hybrid Rules + Machine-Learning Engine”</b> is a bona fide record of the work carried out by</p>
+  <table class="keep" style="width:70%; margin:8pt auto 14pt;">
+    <tr><th>Name</th><th>Roll Number</th></tr>
+    <tr><td>Ansh</td><td>23BCS016</td></tr>
+    <tr><td>Harshit</td><td>23BCS054</td></tr>
+    <tr><td>Vijender</td><td>23BCS132</td></tr>
+    <tr><td>Sourabh</td><td>23BEC055</td></tr>
+  </table>
+  <p>in partial fulfilment of the requirements for the award of the degree of Bachelor of Technology at the Indian Institute of Information Technology Dharwad during the academic year 2026–27, under my supervision and guidance. To the best of my knowledge, the matter embodied in this report has not been submitted to any other university or institute for the award of any degree or diploma.</p>
+  <div class="sig">
+    <div><b>Dr. Anushree Kini</b><br>Project Guide<br>IIIT Dharwad<br><br>Date: ____________</div>
+    <div><b>Head of the Department</b><br>Department of Computer Science and Engineering<br>IIIT Dharwad<br><br>Date: ____________</div>
+  </div>
+  <div class="sig" style="margin-top:50pt;">
+    <div><b>Internal Examiner</b><br>Name and signature</div>
+    <div><b>External Examiner</b><br>Name and signature</div>
+  </div>
+</div>
+
+<div class="fm fmsec">
+  <div class="fmh">Declaration</div>
+  <p>We hereby declare that the project report entitled <b>“ScamShield: Pre-Transaction Scam Detection and Proportional Intervention for UPI-Style Payments using a Hybrid Rules + Machine-Learning Engine”</b>, submitted to the Indian Institute of Information Technology Dharwad in partial fulfilment of the requirements for the degree of Bachelor of Technology, is a record of original work carried out by us under the guidance of Dr. Anushree Kini.</p>
+  <p>The work reported here has not been submitted, in part or in full, to any other university or institute for the award of any degree or diploma. Wherever we have used material from other sources — publications, government data, software libraries or online documentation — it has been duly acknowledged and cited in the References. All users, payments, balances and fraud cases described in this report are <b>synthetic</b>; no real customer data, bank system or payment network was used.</p>
+  <div class="sig" style="margin-top:46pt; flex-wrap:wrap; row-gap:40pt;">
+    <div>Ansh (23BCS016)</div>
+    <div>Harshit (23BCS054)</div>
+    <div>Vijender (23BCS132)</div>
+    <div>Sourabh (23BEC055)</div>
+  </div>
+  <p style="margin-top:30pt;">Place: Dharwad<br>Date: ____________</p>
+</div>
+
+<div class="fm fmsec">
+  <div class="fmh">Acknowledgement</div>
+  <p>We express our sincere gratitude to our project guide, <b>Dr. Anushree Kini</b>, for her guidance, encouragement and critical feedback throughout this project. Her insistence that every result be measured honestly and every claim be defensible shaped the way we evaluated our system.</p>
+  <p>We thank the Director and the faculty of the Indian Institute of Information Technology Dharwad, and in particular the Department of Computer Science and Engineering, for providing the academic environment and computing facilities that made this work possible.</p>
+  <p>We are grateful to our classmates, friends and family members who discussed their own experiences with payment scams and fraudulent calls with us; those conversations convinced us that the problem is real and personal for many households.</p>
+  <p>Finally, we acknowledge the open-source communities behind Next.js, Express, FastAPI, scikit-learn, PostgreSQL, Redis, BullMQ, Prisma and Playwright, on whose work this project is built.</p>
+  <p style="text-align:right; margin-top:30pt;">Ansh · Harshit · Vijender · Sourabh</p>
+</div>
+
+<div class="fm fmsec">
+  <div class="fmh">Abstract</div>
+  <p>The Unified Payments Interface (UPI) processed more than 24,000 crore transactions in FY2025-26, and its speed and irreversibility have made it a preferred channel for fraud. Most UPI fraud is not a technical break-in: the victim is persuaded — by a fake bank or KYC agent, a fake police officer, a “job offer” or a remote-access app — to authorise the payment personally. Once the money has moved, recovery is slow and uncertain. Existing defences are largely after the fact (complaint helplines, account freezing) or operate inside banks without explaining anything to the payer at the moment of decision.</p>
+  <p>This project presents <b>ScamShield</b>, a pre-transaction scam-detection and intervention system for a UPI-style wallet. Every payment is scored <i>before</i> it is authorised. A feature builder computes 20 behavioural features from Redis and PostgreSQL (amount relative to the payer's 30-day baseline, payee age, distinct senders to the payee in 24 hours, velocity, new device, failed attempts and others). Eleven configurable rules and a calibrated gradient-boosting model (scikit-learn HistGradientBoosting with isotonic calibration) produce two scores that are blended into a 0–100 risk score with LOW, MEDIUM and HIGH bands and plain-language reasons. The application intervenes proportionately: nothing for LOW; a warning with three “scam-context” questions for MEDIUM; and a blocking screen with a ten-second pause and mandatory re-typing of the recipient's UPI ID for HIGH. Analyst-confirmed scam accounts are blocked for all users. Analysts review alerts live over Server-Sent Events, and their labels feed back into payee reputation and model retraining.</p>
+  <p>The system is built as a containerised monorepo (Next.js, Express, FastAPI, PostgreSQL, Redis, BullMQ). Because real fraud data is not available to students, we built a seeded synthetic data generator with four user personas, realistic “hard negatives” and four scam scenarios, and evaluated on a time-based holdout of 45,387 payments (1.72 % scams). At the false-positive rate of the rules-only baseline (3.7 %), the hybrid engine catches <b>95.6 %</b> of scams versus <b>73.3 %</b> for rules alone; at the MEDIUM threshold it achieves 79.1 % precision and 93.2 % recall at a 0.43 % false-positive rate. We report honestly that the ML-only model ranks payments slightly better (PR-AUC 0.946 versus 0.933), and that two data leaks discovered during development were fixed rather than reported as gains. The 95th-percentile latency of the scoring endpoint was about 110 ms at 20 requests per second, against a 300 ms budget; 341 automated tests pass. The report also documents the product case — user research, market analysis, legal compliance under the DPDP Act 2023 and RBI directions, and a launch plan — while being explicit that the results come from synthetic data and do not represent real-world fraud rates.</p>
+  <p><b>Keywords:</b> UPI, authorised push payment fraud, scam detection, gradient boosting, probability calibration, explainable risk scoring, security warnings, DPDP Act.</p>
+</div>
+
+<div class="fm fmsec">
+  <div class="fmh">Table of Contents</div>
+  <div class="toc-row l0" style="margin-top:0"><span class="tt">Certificate</span><span class="dots"></span><span class="tp">ii</span></div><div class="toc-row l0" style="margin-top:0"><span class="tt">Declaration</span><span class="dots"></span><span class="tp">iii</span></div><div class="toc-row l0" style="margin-top:0"><span class="tt">Acknowledgement</span><span class="dots"></span><span class="tp">iv</span></div><div class="toc-row l0" style="margin-top:0"><span class="tt">Abstract</span><span class="dots"></span><span class="tp">v</span></div><div class="toc-row l0" style="margin-top:0"><span class="tt">List of Figures</span><span class="dots"></span><span class="tp">ix</span></div><div class="toc-row l0" style="margin-top:0"><span class="tt">List of Tables</span><span class="dots"></span><span class="tp">xi</span></div><div class="toc-row l0" style="margin-top:0"><span class="tt">List of Abbreviations</span><span class="dots"></span><span class="tp">xiii</span></div>
+  {{TOC}}
+</div>
+
+<div class="fm fmsec">
+  <div class="fmh">List of Figures</div>
+  {{LOF}}
+</div>
+
+<div class="fm fmsec">
+  <div class="fmh">List of Tables</div>
+  {{LOT}}
+</div>
+
+<div class="fm">
+  <div class="fmh">List of Abbreviations</div>
+  <table class="small">
+    <tr><th style="width:22%">Abbreviation</th><th>Expansion</th></tr>
+    <tr><td>API</td><td>Application Programming Interface</td></tr>
+    <tr><td>APP fraud</td><td>Authorised Push Payment fraud</td></tr>
+    <tr><td>CERT-In</td><td>Indian Computer Emergency Response Team</td></tr>
+    <tr><td>CFCFRMS</td><td>Citizen Financial Cyber Fraud Reporting and Management System</td></tr>
+    <tr><td>DFD</td><td>Data Flow Diagram</td></tr>
+    <tr><td>DPDP Act</td><td>Digital Personal Data Protection Act, 2023</td></tr>
+    <tr><td>ER</td><td>Entity–Relationship</td></tr>
+    <tr><td>FN / FP / TN / TP</td><td>False Negative / False Positive / True Negative / True Positive</td></tr>
+    <tr><td>FPR</td><td>False-Positive Rate</td></tr>
+    <tr><td>FRI</td><td>Financial Fraud Risk Indicator (Department of Telecommunications)</td></tr>
+    <tr><td>FRM</td><td>Fraud Risk Management</td></tr>
+    <tr><td>GBM</td><td>Gradient-Boosting Machine</td></tr>
+    <tr><td>I4C</td><td>Indian Cyber Crime Coordination Centre</td></tr>
+    <tr><td>IST</td><td>Indian Standard Time</td></tr>
+    <tr><td>JWT</td><td>JSON Web Token</td></tr>
+    <tr><td>KPI</td><td>Key Performance Indicator</td></tr>
+    <tr><td>KYC</td><td>Know Your Customer</td></tr>
+    <tr><td>ML</td><td>Machine Learning</td></tr>
+    <tr><td>NCRP</td><td>National Cyber Crime Reporting Portal</td></tr>
+    <tr><td>NPCI</td><td>National Payments Corporation of India</td></tr>
+    <tr><td>OTP</td><td>One-Time Password</td></tr>
+    <tr><td>PR-AUC</td><td>Area Under the Precision–Recall Curve</td></tr>
+    <tr><td>PRD</td><td>Product Requirements Document</td></tr>
+    <tr><td>PSP / TPAP</td><td>Payment Service Provider / Third-Party Application Provider</td></tr>
+    <tr><td>RBAC</td><td>Role-Based Access Control</td></tr>
+    <tr><td>RBI</td><td>Reserve Bank of India</td></tr>
+    <tr><td>ROC-AUC</td><td>Area Under the Receiver Operating Characteristic Curve</td></tr>
+    <tr><td>SAM / SOM / TAM</td><td>Serviceable Available / Serviceable Obtainable / Total Addressable Market</td></tr>
+    <tr><td>SRS</td><td>Software Requirements Specification</td></tr>
+    <tr><td>SSE</td><td>Server-Sent Events</td></tr>
+    <tr><td>UAT</td><td>User Acceptance Testing</td></tr>
+    <tr><td>UPI</td><td>Unified Payments Interface</td></tr>
+    <tr><td>UVP</td><td>Unique Value Proposition</td></tr>
+  </table>
+</div>

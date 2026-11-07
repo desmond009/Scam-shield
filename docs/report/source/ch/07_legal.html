@@ -1,0 +1,80 @@
+<h1>Policies, Legal and Compliance</h1>
+<p>The prototype uses only synthetic data, so no law is engaged by the demonstration itself. A real deployment, however, would process personal and financial data of identifiable people and make decisions that affect their payments. This chapter sets out the policies and controls a launch would require. It reflects our reading of the relevant laws and regulations and is not legal advice; any launch would require review by qualified counsel and the partner institution's compliance team.</p>
+
+<h2>Privacy and Data Protection</h2>
+<h3>Applicable law in India</h3>
+<table>
+  <caption>Data-protection and cyber-security law relevant to ScamShield</caption>
+  <tr><th style="width:27%">Instrument</th><th>Key obligations relevant to ScamShield</th></tr>
+  <tr><td>Digital Personal Data Protection Act, 2023 <c>dpdp_act</c></td><td>Personal data may be processed only for a lawful purpose, on the basis of consent following a clear notice or for a specified legitimate use; obligations of the <i>Data Fiduciary</i> include purpose limitation, accuracy, reasonable security safeguards, breach notification to the Data Protection Board and to affected <i>Data Principals</i>, erasure when the purpose is served, and a grievance mechanism. Penalties for failing to take reasonable security safeguards can reach ₹250 crore.</td></tr>
+  <tr><td>DPDP Rules, 2025 <c>dpdp_rules</c></td><td>Notified in November 2025 with a staggered roll-out: most substantive obligations (notice, security, breach intimation, retention, rights) apply about 18 months after notification, i.e. around May 2027. A product launching in 2027 must comply from day one.</td></tr>
+  <tr><td>Information Technology Act, 2000 <c>itact</c> and SPDI Rules, 2011 <c>spdi</c></td><td>Section 43A (compensation for negligence in protecting sensitive personal data, including financial information) and the SPDI Rules remain relevant until the DPDP regime fully applies; Section 72A penalises disclosure of personal information in breach of contract. Sections 66C and 66D (identity theft; cheating by personation) describe the offences ScamShield helps prevent.</td></tr>
+  <tr><td>CERT-In Directions, 28 April 2022 <c>certin</c></td><td>Report specified cyber incidents to CERT-In within 6 hours; maintain ICT system logs for a rolling 180 days within India; synchronise clocks to national time servers.</td></tr>
+  <tr><td>RBI, Storage of Payment System Data, 2018 <c>rbi_local</c></td><td>Payment-system data must be stored only in India — the platform must be hosted in Indian regions.</td></tr>
+  <tr><td>GDPR (if offered outside India) <c>gdpr</c></td><td>Lawful basis, data-protection impact assessment, rights not to be subject to solely automated decisions with significant effects (Art. 22) — relevant because HIGH-risk friction is automated.</td></tr>
+</table>
+
+<h3>Privacy policy (summary of the proposed policy)</h3>
+<ol>
+  <li><b>What we collect.</b> Account details (name, e-mail, UPI ID); payment details (amount, payee, time); a hashed device identifier; login and verification outcomes; answers to the scam-context questions; reports filed. We do <b>not</b> collect contacts, SMS, call logs, location, card numbers or bank credentials.</li>
+  <li><b>Why.</b> Solely to detect and prevent payment fraud and scams, to operate the wallet, and to meet legal obligations. Data is not used for advertising, credit scoring or sale to third parties.</li>
+  <li><b>Legal basis.</b> Consent obtained through a clear, itemised notice at onboarding (available in English and the user's language), and legitimate uses permitted by law where applicable.</li>
+  <li><b>Retention.</b> Raw behavioural features for 12 months (needed to retrain models and handle disputes); aggregated baselines for 30 days; audit logs and security logs as required by CERT-In and DPDP rules; deletion or anonymisation thereafter.</li>
+  <li><b>Sharing.</b> With the partner bank or PSP that holds the user's account; with law enforcement when legally required; confirmed-fraud payee identifiers may be shared with industry registries.</li>
+  <li><b>User rights.</b> Access a summary of data held, correction, erasure (subject to legal retention), grievance redressal within the statutory period, and nomination. Users can see every warning they received and every report they filed on the <i>My Safety</i> page.</li>
+  <li><b>Security.</b> Encryption in transit and at rest, access control, audit logging, breach-response plan (Section 7.3).</li>
+  <li><b>Contact.</b> A named Grievance Officer / Data Protection contact.</li>
+</ol>
+
+<h2>Terms of Service and User Consent</h2>
+<ul>
+  <li><b>Nature of the service.</b> ScamShield provides risk <i>warnings</i>; it lowers but cannot eliminate the risk of fraud, and does not guarantee that every scam will be caught or that every flagged payment is a scam.</li>
+  <li><b>User autonomy.</b> For MEDIUM risk the user may continue after reading the warning. For HIGH risk the user may continue after the pause and verification. Only payments to analyst-confirmed scam accounts are blocked outright; such blocks can be appealed through the grievance channel.</li>
+  <li><b>Questionnaire.</b> Answering is voluntary; answers are used only to assess the current payment and to improve detection.</li>
+  <li><b>Reports.</b> Users must report in good faith; malicious reporting may lead to suspension. Reports alone never block a payee.</li>
+  <li><b>Consent flow.</b> Consent is collected with an unbundled notice (separate from the wallet terms), can be withdrawn at any time, and withdrawal is as easy as giving consent. Since fraud screening is integral to the payment service, withdrawal may limit the ability to make payments through the partner app — this is disclosed up front.</li>
+  <li><b>Liability and disputes.</b> Governed by the partner institution's customer-protection policy and applicable RBI directions; jurisdiction of Indian courts.</li>
+</ul>
+
+<h2>Security Policies</h2>
+<table>
+  <caption>Security controls: implemented in the prototype versus required for production</caption>
+  <tr><th style="width:18%">Area</th><th style="width:41%">Implemented in prototype</th><th>Required before production</th></tr>
+  <tr><td>Authentication</td><td>bcrypt-hashed passwords (cost 10); session JWT (HS256, 8 h) in httpOnly, SameSite=Lax cookie; generic error messages; constant-time-ish login for unknown e-mails; failed-attempt counting</td><td>Delegate to the partner bank's authentication; MFA for analysts and admins; SSO; secure flag over HTTPS only</td></tr>
+  <tr><td>Authorisation</td><td>RBAC (USER &lt; ANALYST &lt; ADMIN) enforced server-side on every route</td><td>Four-eyes approval for rule/threshold changes; least-privilege service accounts</td></tr>
+  <tr><td>Payment integrity</td><td>Signed, short-lived check token binding user, transaction, amount and payee; conditional updates prevent double spending and negative balances</td><td>HSM-backed keys; key rotation</td></tr>
+  <tr><td>Input and API</td><td>zod validation on every body, query and parameter; 100 kB body limit; helmet headers; CORS restricted to the web origin; rate limits in Redis</td><td>Web application firewall; API gateway; OWASP ASVS Level 2 verification <c>owasp_asvs</c></td></tr>
+  <tr><td>Encryption</td><td>Not applicable on localhost</td><td>TLS 1.2+ everywhere; encryption at rest for PostgreSQL, Redis persistence and backups</td></tr>
+  <tr><td>Data storage</td><td>Device IDs hashed; no card/bank data; synthetic data only; secrets in <span class="mono">.env</span>, not in the repository</td><td>Secrets manager; India-region hosting; field-level encryption of personal data; data-retention jobs</td></tr>
+  <tr><td>Logging and audit</td><td>Structured logs with request IDs, secrets and cookies redacted; audit log for verdicts, rule changes, retraining, simulator runs</td><td>Tamper-evident log storage, 180-day retention in India, SIEM integration</td></tr>
+  <tr><td>Incident response</td><td>—</td><td>Documented plan: CERT-In report within 6 hours; DPDP Board and data-principal notification; post-incident review</td></tr>
+  <tr><td>Assurance</td><td>341 automated tests including token tampering, RBAC and concurrency</td><td>Independent penetration test; RBI/partner security audit</td></tr>
+</table>
+
+<h2>Accessibility and Ethical Considerations</h2>
+<h3>Accessibility</h3>
+<p>ScamShield's users include senior citizens and first-time digital users. The interface targets WCAG 2.2 Level AA <c>wcag</c>, in line with the spirit of the Rights of Persons with Disabilities Act, 2016 <c>rpwd</c>: risk is never conveyed by colour alone (each band has an icon and text label), the warning screens use short sentences, buttons are large and clearly labelled, and the layout works at 390 px width and in dark mode. Future work includes screen-reader testing, regional languages and voice read-out of HIGH warnings.</p>
+<h3>Ethics</h3>
+<table>
+  <caption>Ethical risks and how the design responds</caption>
+  <tr><th style="width:26%">Concern</th><th>Design response</th></tr>
+  <tr><td>False positives burden innocent users</td><td>Thresholds chosen on measured false-positive rates (0.43 % at MEDIUM on the holdout); LOW payments see nothing; hard-negative scenarios in training; per-scenario false-alarm reporting (e.g. festival spending, merchant batches).</td></tr>
+  <tr><td>Bias against groups (e.g. seniors, new users)</td><td>No demographic attributes are used as features; behaviour is compared to the user's own baseline. In production, false-positive rates should be monitored by user segment.</td></tr>
+  <tr><td>Paternalism vs autonomy</td><td>Friction is proportional and explained; the user may proceed in all cases except confirmed scam accounts.</td></tr>
+  <tr><td>Dark patterns</td><td>Friction is used only to slow down a likely scam, never to drive commercial outcomes; the safe option is prominent but every option is visible.</td></tr>
+  <tr><td>Automated decisions</td><td>Every decision has human-readable reasons; analysts review MEDIUM/HIGH alerts; payee blocks require a human verdict.</td></tr>
+  <tr><td>Malicious reporting</td><td>One report per user per payee; reports raise risk but never block; analyst review is authoritative.</td></tr>
+  <tr><td>Honest communication of results</td><td>We report that results come from synthetic data, that ML-only ranks slightly better than hybrid, and the data leaks we found and fixed.</td></tr>
+</table>
+
+<h2>Domain-Specific Regulation</h2>
+<table>
+  <caption>Payments-sector regulation relevant to a ScamShield deployment</caption>
+  <tr><th style="width:34%">Regulation</th><th>Relevance</th></tr>
+  <tr><td>RBI Master Direction on Digital Payment Security Controls, 2021 <c>rbi_dpsc</c></td><td>Requires regulated entities to have governance, authentication and fraud-risk-management controls for digital payments, including real-time transaction monitoring — ScamShield is one such control.</td></tr>
+  <tr><td>RBI Master Directions on Fraud Risk Management, 2024 <c>rbi_frm</c></td><td>Board-approved fraud-risk policy, early-warning signals, red-flagging and reporting. ScamShield's alerts and audit trail can feed the partner's early-warning framework.</td></tr>
+  <tr><td>RBI Authentication Mechanisms for Digital Payment Transactions Directions, 2025 <c>rbi_auth</c></td><td>From 1 April 2026, in addition to two-factor authentication, issuers are expected to apply risk-based checks — directly supporting the case for pre-transaction risk scoring.</td></tr>
+  <tr><td>NPCI UPI operating guidelines and API usage limits (2025) <c>npci_api</c></td><td>Any integration must respect NPCI's API rate limits and operating procedures; scoring must run within the PSP's own systems, not by polling NPCI.</td></tr>
+  <tr><td>Outsourcing of financial services (RBI)</td><td>A bank using ScamShield as a vendor service must meet RBI's outsourcing and IT-outsourcing expectations: audit rights, data location, business continuity.</td></tr>
+  <tr><td>DoT Financial Fraud Risk Indicator <c>dot_fri</c></td><td>An external signal that a deployment could consume (risk of the payee's mobile number), subject to the terms of access.</td></tr>
+</table>

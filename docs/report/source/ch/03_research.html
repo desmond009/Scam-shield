@@ -1,0 +1,106 @@
+<h1>User Research</h1>
+<p>User research had two purposes: to confirm that the problem matters to real people, and to make design decisions — which signals to use, how much friction is acceptable, how warnings should be worded — on the basis of evidence rather than our own assumptions. This chapter presents the personas we designed for, the questionnaire used to validate the problem, the evidence gathered, and the user journey.</p>
+
+<h2>Research Approach</h2>
+<p>We combined three sources of evidence:</p>
+<ol>
+  <li><b>Secondary research</b> — government data, regulator publications and large published surveys (Chapter 2), in particular the 2025 LocalCircles survey of more than 32,000 respondents across 365 districts <c>localcircles</c>.</li>
+  <li><b>Primary research</b> — a structured questionnaire (Appendix A) for UPI users, and short semi-structured conversations with family members, classmates and local shopkeepers about scam attempts they had faced.</li>
+  <li><b>Literature on warning design</b> — field studies showing that people habituate to frequent, generic security warnings and respond better to rare, specific and varied ones <c>akhawe2013, anderson2015, vance2018</c>.</li>
+</ol>
+<p>The personas below are <i>composite</i> personas in the sense of Cooper <c>cooper2004</c>: each combines traits observed across several people and published reports, and none describes a real individual. The same four user types drive the synthetic data generator (Section 8.8), so the system is designed and evaluated for the same people.</p>
+
+<h2>User Personas</h2>
+<div class="persona"><div class="ph">Persona 1 — Kamala Rao, 67, retired schoolteacher (Hubballi)</div><div class="pb">
+<b>Background</b><span>Lives with her husband; son works in Bengaluru and set up her UPI app. Receives a monthly pension. Makes about three payments a day (vegetables, medicines, electricity), typically ₹100–₹800, during the day.</span>
+<b>Goals</b><span>Pay bills independently without bothering her son; keep her savings safe.</span>
+<b>Pain points</b><span>Trusts callers who sound official; fears her account or pension will be “blocked”; small screen text; does not know what a “collect request” is.</span>
+<b>Behaviour</b><span>Follows instructions step by step; panics under time pressure; rarely reads long messages.</span>
+<b>Scam risk</b><span>Fake KYC / bank / pension calls; “digital arrest”.</span>
+<b>What she needs</b><span>A clear, calm “stop” at the right moment, one sentence that explains why, and a big, obvious safe option.</span>
+</div></div>
+
+<div class="persona"><div class="ph">Persona 2 — Rohan Kulkarni, 20, engineering student (Dharwad)</div><div class="pb">
+<b>Background</b><span>Monthly allowance from parents; about seven small payments a day (canteen, auto, recharges, ₹50–₹300), often late at night.</span>
+<b>Goals</b><span>Fast, frictionless payments; earn some money part-time.</span>
+<b>Pain points</b><span>Annoyed by any delay; sees “work-from-home / task” offers on social media; embarrassed to report losses to parents.</span>
+<b>Behaviour</b><span>Tech-savvy but over-confident; ignores generic warnings; pays new people often (friends, hostel contacts).</span>
+<b>Scam risk</b><span>Job/task scams paying a mule account; investment “groups”.</span>
+<b>What he needs</b><span>No friction for everyday payments, and a specific warning (“this account is collecting from many people today”) when it matters.</span>
+</div></div>
+
+<div class="persona"><div class="ph">Persona 3 — Imran Shaikh, 38, kirana shop owner (Belagavi)</div><div class="pb">
+<b>Background</b><span>Receives about 25 payments a day; pays suppliers in batches of three to five within minutes; amounts ₹500–₹20,000.</span>
+<b>Goals</b><span>Keep the queue moving; pay suppliers on time; avoid fake “I sent too much, please refund” tricks.</span>
+<b>Pain points</b><span>Cannot tolerate false alarms on routine supplier payments; often uses a second phone at the counter.</span>
+<b>Behaviour</b><span>High volume, repetitive, time-pressured; legitimate patterns that look like velocity and new devices.</span>
+<b>Scam risk</b><span>Fake buyer refunds, QR-code swaps, account takeover.</span>
+<b>What he needs</b><span>A system that learns his normal behaviour, so batches and festival rush do not trigger warnings.</span>
+</div></div>
+
+<div class="persona"><div class="ph">Persona 4 — Priya Nair, 29, fraud-operations analyst at a mid-size bank (B2B user)</div><div class="pb">
+<b>Background</b><span>Reviews flagged transactions in a vendor FRM tool; part of a small team handling a large queue.</span>
+<b>Goals</b><span>Review the riskiest cases first; make defensible decisions quickly; stop mule accounts early.</span>
+<b>Pain points</b><span>Alert fatigue; opaque scores without reasons; no way to see that ten victims paid the same new account today; rule changes need IT tickets.</span>
+<b>Behaviour</b><span>Works from a queue; wants keyboard-fast review, full context on one screen, and a feedback loop that visibly improves the system.</span>
+<b>What she needs</b><span>Live alerts with score breakdown, reasons, model contributions and payee history; one-click “confirm fraud” that blocks the payee for everyone.</span>
+</div></div>
+
+<h2>Survey and Interview Questionnaire</h2>
+<p>The questionnaire (reproduced in full in Appendix A) has 20 questions in five sections, designed to take under five minutes on a phone. Table 3.1 shows its structure and the hypothesis each section tests.</p>
+<table class="keep">
+  <caption>Structure of the validation questionnaire</caption>
+  <tr><th style="width:26%">Section</th><th style="width:10%">Questions</th><th>Hypothesis tested</th></tr>
+  <tr><td>A. Demographics &amp; usage</td><td>Q1–Q5</td><td>Our personas cover the main user types; most respondents use UPI daily.</td></tr>
+  <tr><td>B. Exposure to scams</td><td>Q6–Q10</td><td>H1: Most respondents (or their families) have received a scam attempt; scams are mainly social engineering, not hacking.</td></tr>
+  <tr><td>C. Losses and recovery</td><td>Q11–Q13</td><td>H2: Victims rarely recover money and often do not report.</td></tr>
+  <tr><td>D. Attitudes to warnings and friction</td><td>Q14–Q18</td><td>H3: Users accept a short delay on a risky payment if it is rare and explained; H4: three yes/no questions are acceptable.</td></tr>
+  <tr><td>E. Trust and privacy</td><td>Q19–Q20</td><td>H5: Users accept behavioural analysis of their payments if the purpose is limited to fraud prevention.</td></tr>
+</table>
+
+<h2>Summary of Responses and Key Insights</h2>
+<h3>Evidence from published surveys</h3>
+<p>The large published surveys strongly support H1 and H2. In the 2025 LocalCircles survey, about 20 % of UPI-using families reported at least one fraud incident since 2022; among victims, about half reported that their PIN or settings were compromised and about 40 % lost money after clicking a payment link <c>localcircles</c>. About 51 % of victims never filed a complaint <c>localcircles_nc</c>. Government data show “digital arrest” cases — a pure social-engineering scam — tripling from 39,925 in 2022 to 1,23,672 in 2024 <c>digital_arrest</c>.</p>
+
+<h3>Primary survey results</h3>
+<div class="todo">The team's own questionnaire responses are not included in the project repository, so they have not been reported here. Insert the actual number of respondents (n), the collection period and channel (e.g. Google Form shared in college and family groups), and the percentage answering each option, using the template in Appendix B. Do not estimate or round up figures that were not collected.</div>
+<table class="keep">
+  <caption>Template for reporting primary survey results (to be filled with collected data)</caption>
+  <tr><th>Key question</th><th class="n">% of respondents</th><th>Supports hypothesis?</th></tr>
+  <tr><td>Q6 — Received at least one scam call/message in the last 12 months</td><td class="n">__ %</td><td>H1</td></tr>
+  <tr><td>Q8 — Self or family member lost money to a UPI scam</td><td class="n">__ %</td><td>H1</td></tr>
+  <tr><td>Q12 — Money recovered (of those who lost money)</td><td class="n">__ %</td><td>H2</td></tr>
+  <tr><td>Q15 — Would accept a 10-second pause on a payment flagged as high risk</td><td class="n">__ %</td><td>H3</td></tr>
+  <tr><td>Q17 — Would answer three yes/no questions before a risky payment</td><td class="n">__ %</td><td>H4</td></tr>
+  <tr><td>Q19 — Comfortable with payment-pattern analysis for fraud prevention only</td><td class="n">__ %</td><td>H5</td></tr>
+</table>
+
+<h3>Key insights that shaped the design</h3>
+<table>
+  <caption>Research insights and the design decisions they led to</caption>
+  <tr><th style="width:45%">Insight</th><th>Design decision in ScamShield</th></tr>
+  <tr><td>Scams are mostly persuasion of a legitimate user; the PIN is entered by the real owner.</td><td>Score the <i>payment</i>, not just the login; add context questions that capture what transaction data cannot (a caller applying pressure, a request for an OTP or app install).</td></tr>
+  <tr><td>People habituate to frequent, generic warnings <c>akhawe2013, vance2018</c>.</td><td>No warning at all for LOW risk (the vast majority); warnings are specific (“this account is two days old”) and limited to the top three reasons.</td></tr>
+  <tr><td>Time pressure is the scammer's main tool <c>stajano2011</c>.</td><td>HIGH risk imposes a ten-second pause and requires the UPI ID to be retyped; the safe action (“Cancel and report”) is the most prominent button.</td></tr>
+  <tr><td>A coached victim may lie to the app.</td><td>Questionnaire answers can only <i>raise</i> the score, never lower it.</td></tr>
+  <tr><td>Merchants and festival shoppers have unusual but legitimate behaviour.</td><td>Per-user baselines (30-day mean, spread, maximum, usual hour, known payees and devices); hard-negative scenarios in the training data.</td></tr>
+  <tr><td>Victims rarely report, and reports arrive late.</td><td>One-tap “Cancel and report” at the moment of the warning; reports raise the payee's risk for every user.</td></tr>
+  <tr><td>Analysts need context, not just a score.</td><td>Analyst view shows rule points, ML score and top contributing features, all reasons, and the payee's history; FRAUD verdict blocks the payee platform-wide.</td></tr>
+</table>
+
+<h2>User Journey Map</h2>
+<p>Figure 3.1 maps the emotional journey of Persona 1 (Kamala) through a fake KYC scam today, and Table 3.4 contrasts each stage with the journey when ScamShield is in place.</p>
+<figure>
+  <img class="plain" src="fig/journey.png">
+  <figcaption>Illustrative emotional journey of Persona 1 through a fake-KYC scam, without and with ScamShield (1 = distressed, 5 = at ease)</figcaption>
+</figure>
+<table>
+  <caption>Journey stages: current experience versus experience with ScamShield</caption>
+  <tr><th style="width:15%">Stage</th><th style="width:40%">Today</th><th>With ScamShield</th></tr>
+  <tr><td>Contact</td><td>Unsolicited call or message; no signal from the payment app.</td><td>Unchanged (telecom layer is out of scope).</td></tr>
+  <tr><td>Pressure</td><td>Caller creates urgency and fear.</td><td>Unchanged — but the app is designed to interrupt it at the next step.</td></tr>
+  <tr><td>Recipient entry</td><td>Sees only a name.</td><td>Recipient card shows “first payment to this person” and “on ScamShield for 2 days”.</td></tr>
+  <tr><td>Payment check</td><td>None beyond PIN.</td><td>Risk check in ≈ 10–100 ms. MEDIUM: warning with reasons and three questions. Answering “someone called asking me to pay urgently” raises it to HIGH.</td></tr>
+  <tr><td>Decision</td><td>Pays immediately.</td><td>HIGH: blocking screen, ten-second pause, retype the UPI ID; “Cancel and report this account” is the primary button.</td></tr>
+  <tr><td>Aftermath</td><td>Loss; slow complaint; scammer reuses the account on others.</td><td>Report raises the payee's risk for everyone; analyst confirms fraud; all future payments to the account are blocked.</td></tr>
+</table>

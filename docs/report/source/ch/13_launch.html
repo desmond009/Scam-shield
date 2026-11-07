@@ -1,0 +1,84 @@
+<h1>Product Launch Documentation</h1>
+
+<h2>Product Requirements Document (Summary)</h2>
+<table class="keep">
+  <caption>PRD summary for ScamShield v1.0 (pilot release)</caption>
+  <tr><th style="width:22%">Item</th><th>Content</th></tr>
+  <tr><td>Product</td><td>ScamShield — pre-transaction scam-risk engine with payer-facing interventions and analyst/admin consoles.</td></tr>
+  <tr><td>Problem</td><td>Users are manipulated into authorising payments to scammers; existing controls verify identity, not intent, and act after the money has moved.</td></tr>
+  <tr><td>Target customers</td><td>Cooperative banks, small finance banks and smaller TPAPs originating UPI payments.</td></tr>
+  <tr><td>Target users</td><td>Payers (personas: senior citizen, student, shopkeeper, salaried); fraud analysts; risk administrators.</td></tr>
+  <tr><td>Goals</td><td>(1) Reduce successful scam payments among intervened users; (2) keep friction on genuine payments negligible; (3) shorten time from first victim to payee block.</td></tr>
+  <tr><td>Non-goals (v1)</td><td>Telecom-level blocking; card or net-banking fraud; credit decisions; automatic blocking without analyst review (except confirmed scam payees).</td></tr>
+  <tr><td>Key features</td><td>Hybrid score + band + reasons; proportional interventions; questionnaire; payee reputation and reports; live analyst console; rules editor with what-if; evaluation and retraining; simulator; health dashboard.</td></tr>
+  <tr><td>Success metrics</td><td>See Table 13.4 (KPIs).</td></tr>
+  <tr><td>Release criteria</td><td>Shadow-mode precision ≥ 50 % at HIGH and FPR ≤ 0.5 % at MEDIUM on partner data; p95 latency &lt; 300 ms at pilot load; zero critical findings in security audit; DPDP notice and consent flow approved by partner's compliance team.</td></tr>
+  <tr><td>Dependencies</td><td>Partner data access and labels; integration with partner's UPI app back end; hosting in India.</td></tr>
+  <tr><td>Open questions</td><td>Who bears liability for a missed scam? How are blocked-payee appeals handled? Which languages first?</td></tr>
+</table>
+
+<h2>Lean Canvas</h2>
+<p>Figure 13.1 summarises the business model in the Lean Canvas format <c>maurya2012</c>.</p>
+<figure>
+<div class="canvas">
+  <div style="grid-row: 1 / 3;"><h4>Problem</h4><ul><li>Victims are talked into authorising scam payments</li><li>Controls check identity, not intent</li><li>Recovery after payment is slow and rare</li></ul><h4 style="margin-top:6pt">Existing alternatives</h4><ul><li>Bank FRM tools, 1930 helpline, generic SMS warnings, caller-ID apps</li></ul></div>
+  <div><h4>Solution</h4><ul><li>Pre-payment hybrid risk score</li><li>Proportional, explained interventions</li><li>Analyst feedback loop and payee blocking</li></ul></div>
+  <div style="grid-row: 1 / 3;"><h4>Unique value proposition</h4><p style="margin:0; font-size:9pt; line-height:1.3; text-align:left;"><b>Stop the scam before the money moves</b> — explain the risk in one sentence, ask what an analyst would ask, and add friction only when it matters.</p><h4 style="margin-top:6pt">High-level concept</h4><p style="margin:0; font-size:9pt; text-align:left;">“A smoke alarm for payments.”</p></div>
+  <div><h4>Unfair advantage</h4><ul><li>Payer-facing intervention design + honest, reproducible evaluation harness</li><li>Lightweight stack affordable for small banks</li></ul></div>
+  <div style="grid-row: 1 / 3;"><h4>Customer segments</h4><ul><li>Cooperative and small finance banks</li><li>Smaller UPI TPAPs and PSPs</li></ul><h4 style="margin-top:6pt">Early adopters</h4><ul><li>Institutions with rising APP-fraud complaints and no in-house data-science team</li></ul></div>
+  <div><h4>Key metrics</h4><ul><li>Scams prevented</li><li>False-positive rate</li><li>Time to payee block</li></ul></div>
+  <div><h4>Channels</h4><ul><li>Direct sales to risk teams</li><li>Core-banking / UPI-switch vendors</li><li>Sandboxes and fintech events</li></ul></div>
+  <div style="grid-column: 1 / 3;"><h4>Cost structure</h4><ul><li>Cloud hosting in India; security audits; compliance and legal</li><li>Team salaries; customer onboarding</li></ul></div>
+  <div style="grid-column: 3 / 6;"><h4>Revenue streams</h4><ul><li>Per-check API fee (₹0.01–0.02); platform subscription; onboarding and tuning fee; on-premise licence</li></ul></div>
+</div>
+  <figcaption>Lean Canvas for ScamShield</figcaption>
+</figure>
+
+<h2>Cost Estimation and Budget</h2>
+<p><b>Cost of the academic project.</b> The prototype was built entirely with open-source software on the team members' own laptops; the direct monetary cost was nil. <b>Pilot budget.</b> Table 13.2 estimates the first year of a pilot with one partner institution. All figures are planning estimates based on typical Indian cloud and services pricing, not quotations.</p>
+<table class="keep">
+  <caption>Estimated first-year budget for a pilot (₹)</caption>
+  <tr><th>Item</th><th>Basis</th><th class="n">Annual cost</th></tr>
+  <tr><td>Compute (API, worker, ML)</td><td>2 × 4 vCPU / 16 GB VMs, India region</td><td class="n">2,90,000</td></tr>
+  <tr><td>Managed PostgreSQL (with replica, backups)</td><td>≈ ₹15,000 / month</td><td class="n">1,80,000</td></tr>
+  <tr><td>Managed Redis</td><td>≈ ₹8,000 / month</td><td class="n">96,000</td></tr>
+  <tr><td>Monitoring, logging (180-day retention), backups</td><td>≈ ₹7,000 / month</td><td class="n">84,000</td></tr>
+  <tr><td>Security audit and penetration test</td><td>One external engagement</td><td class="n">4,00,000</td></tr>
+  <tr><td>Legal and compliance (DPDP, contracts)</td><td>Counsel review, policies</td><td class="n">3,00,000</td></tr>
+  <tr><td>Team</td><td>4 members × ₹30,000 / month stipend</td><td class="n">14,40,000</td></tr>
+  <tr><td>Domain, certificates, tools, travel to partner</td><td>Miscellaneous</td><td class="n">60,000</td></tr>
+  <tr><td>Contingency</td><td>10 %</td><td class="n">2,85,000</td></tr>
+  <tr><th colspan="2">Total</th><th class="n">≈ 31,35,000</th></tr>
+</table>
+<p>At the assumed price of ₹0.02 per check, the pilot's non-team costs (≈ ₹14 lakh) are covered at about 7 crore scored payments a year — roughly 2 lakh a day, which a mid-sized cooperative bank or TPAP could reach. Funding routes for the pilot include institute incubation, startup-India seed schemes and fintech grand challenges.</p>
+
+<h2>Risk Analysis and Mitigation</h2>
+<table>
+  <caption>Risk register (likelihood and impact: L = low, M = medium, H = high)</caption>
+  <tr><th style="width:26%">Risk</th><th style="width:6%">L</th><th style="width:6%">I</th><th>Mitigation</th></tr>
+  <tr><td>Model performs worse on real data than on synthetic data</td><td>H</td><td>H</td><td>Shadow-mode pilot before any intervention; recalibrate and re-tune thresholds on real labels; rules provide a floor.</td></tr>
+  <tr><td>High false-positive rate annoys users</td><td>M</td><td>H</td><td>LOW band sees nothing; monitor FPR by segment; what-if preview before rule changes; kill-switch per rule.</td></tr>
+  <tr><td>Scammers coach victims through warnings</td><td>H</td><td>M</td><td>Answers only raise risk; OTP override; vary warning designs; payee-side signals (mule, reports) independent of victim.</td></tr>
+  <tr><td>Data breach or misuse</td><td>L</td><td>H</td><td>Data minimisation; encryption; access control; audit; CERT-In / DPDP incident plan; India-only hosting.</td></tr>
+  <tr><td>ML service outage</td><td>M</td><td>M</td><td>Timeout + circuit breaker + rules-only degraded mode (implemented and tested).</td></tr>
+  <tr><td>Regulatory change</td><td>M</td><td>M</td><td>Track RBI / NPCI / MeitY notifications; configurable rules and thresholds; modular consent.</td></tr>
+  <tr><td>Competition from large apps / vendors</td><td>H</td><td>M</td><td>Focus on underserved small institutions; integrate as a complement to existing FRM.</td></tr>
+  <tr><td>Malicious mass reporting of a payee</td><td>M</td><td>L</td><td>One report per account; reports never block alone; analyst verdict required.</td></tr>
+  <tr><td>Key-person dependency in a small team</td><td>M</td><td>M</td><td>Documentation (architecture, API, data, demo script); tests; shared code ownership.</td></tr>
+</table>
+
+<h2>Key Metrics and KPIs After Launch</h2>
+<table class="keep">
+  <caption>Post-launch KPIs and targets for the pilot</caption>
+  <tr><th style="width:26%">KPI</th><th>Definition</th><th style="width:20%">Pilot target</th></tr>
+  <tr><td>Scam interception rate</td><td>Confirmed scam payments flagged MEDIUM/HIGH ÷ all confirmed scam payments</td><td>≥ 70 %</td></tr>
+  <tr><td>Prevented loss</td><td>Value of flagged scam payments the user cancelled</td><td>Track and report monthly</td></tr>
+  <tr><td>False-positive rate</td><td>Genuine payments flagged ÷ genuine payments (MEDIUM)</td><td>≤ 0.5 %</td></tr>
+  <tr><td>HIGH-band precision</td><td>Confirmed scams ÷ HIGH decisions</td><td>≥ 50 %</td></tr>
+  <tr><td>Cancellation rate on HIGH</td><td>HIGH payments cancelled ÷ HIGH payments</td><td>≥ 60 %</td></tr>
+  <tr><td>Time to payee block</td><td>First victim payment → analyst FRAUD verdict</td><td>Median ≤ 2 h</td></tr>
+  <tr><td>Decision latency</td><td>p95 of check endpoint</td><td>&lt; 300 ms</td></tr>
+  <tr><td>Degraded-mode share</td><td>Decisions scored rules-only ÷ all decisions</td><td>≤ 0.1 %</td></tr>
+  <tr><td>Alert handling</td><td>Median time from alert to verdict</td><td>≤ 30 min (business hours)</td></tr>
+  <tr><td>User sentiment</td><td>Post-warning survey: “the warning was helpful”</td><td>≥ 70 % agree</td></tr>
+</table>

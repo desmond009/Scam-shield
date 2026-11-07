@@ -1,0 +1,41 @@
+<h1>Introduction</h1>
+
+<h2>Background and Context</h2>
+<p>India has become the world's largest real-time payments market. The Unified Payments Interface (UPI), operated by the National Payments Corporation of India (NPCI), lets any user move money from one bank account to another in seconds using only a virtual payment address such as <span class="mono">name@bank</span>. According to figures placed before Parliament, UPI processed about 18,587 crore transactions in FY2024-25 and about 24,162 crore transactions worth ₹314.23 lakh crore in FY2025-26 <c>upi_fy26, upi_fy26b</c>; NPCI publishes the monthly figures <c>npci_stats</c>. About 55.49 crore users had been onboarded by June 2026 <c>upi_users</c>, and more than 700 banks are live on the network <c>upi_banks</c>. For a street vendor, a student or a pensioner, a UPI payment is now as ordinary as handing over cash.</p>
+<p>The properties that make UPI successful — instant settlement, no card or account details, payments to anyone, irrevocability once authorised — also make it attractive to fraudsters. Parliamentary replies show roughly 13.42 lakh UPI fraud cases involving ₹1,087 crore in FY2023-24 and 12.64 lakh cases involving ₹981 crore in FY2024-25 <c>upi_fraud_ls</c>. Across all channels, the Ministry of Home Affairs reported that citizens lost ₹22,845.73 crore to cyber financial fraud in calendar year 2024, up from ₹7,465.18 crore in 2023 <c>i4c_loss</c>.</p>
+<p>A defining feature of this fraud is that, in most cases, nothing is technically “hacked”. The victim personally opens their payment app, enters the amount and their UPI PIN, and sends the money — because someone posing as a bank official, a KYC desk, a courier, a police officer or a prospective buyer has convinced them to do so. In the international literature this is called <i>authorised push payment</i> (APP) fraud. Because the victim authorises the payment, controls built to stop unauthorised access — PINs, OTPs, device binding — do not stop it.</p>
+
+<h2>Motivation</h2>
+<p>We chose this problem for three reasons.</p>
+<ol>
+  <li><b>It is close to home.</b> Almost every member of our team and our families has received a fake “KYC expiry”, “electricity disconnection” or “job offer” message. Several of our relatives have been targeted, and some have lost money. Survey data agree: in a 2025 LocalCircles survey, one in five UPI-using families reported experiencing UPI fraud since 2022 <c>localcircles</c>.</li>
+  <li><b>The moment of payment is the last, best chance.</b> Once money leaves the victim's account it is typically moved through a chain of mule accounts within minutes. Government fraud-freezing systems have saved significant sums — more than ₹11,158 crore by June 2026 <c>cfcfrms_saved</c> — but that is a fraction of reported losses. A check that runs <i>before</i> authorisation can stop the loss rather than chase it.</li>
+  <li><b>It combines the subjects we have studied.</b> The problem needs data engineering (behavioural features computed in milliseconds), machine learning under severe class imbalance, distributed-systems design (idempotency, consistency, graceful degradation) and human-centred design (warnings people actually heed). It is a good test of an engineering education.</li>
+</ol>
+<p><b>Why we believe it will work.</b> Three pieces of evidence give us confidence. First, scams leave behavioural fingerprints that differ from a user's normal behaviour: a first-time payee, an amount many times the user's usual, a recipient account that is only days old or that is suddenly being paid by many unrelated people. Fraud-detection research has used such signals for decades <c>bolton2002, dalpozzolo2014</c>. Second, the context that transaction data cannot see — “someone is on the phone telling me to pay” — can be asked directly, in a few seconds, of the person about to pay. Third, our prototype, evaluated on a time-based holdout of synthetic data that includes deliberately confusing legitimate behaviour, catches 95.6 % of scams at the false-positive rate where a rules-only system catches 73.3 % (Chapter 10). These results are from synthetic data and are not a claim about real-world performance; they show that the method is sound and worth piloting with real data.</p>
+
+<h2>Objectives</h2>
+<p>The objectives of the project were to:</p>
+<ol>
+  <li>Score every payment for scam risk <b>before</b> it is authorised, returning a 0–100 score, a LOW / MEDIUM / HIGH band and plain-language reasons, within a 95th-percentile latency budget of 300 ms.</li>
+  <li>Combine transparent, configurable <b>rules</b> with a <b>calibrated machine-learning</b> model, and show on a fair, time-based evaluation whether the hybrid beats rules alone in recall at a matched false-positive rate — and report the result honestly either way.</li>
+  <li>Design <b>proportional interventions</b>: no friction for low-risk payments, an informative warning plus scam-context questions for medium risk, and deliberate friction (pause and verify) for high risk.</li>
+  <li>Provide an <b>analyst console</b> with live alerts, full explanations and a feedback loop (labels → payee reputation, hard blocks, retraining).</li>
+  <li>Build the system to <b>degrade gracefully</b>: if the ML service is slow or down, payments are still checked with rules and never held up.</li>
+  <li>Document the work as a <b>product</b>: user research, market and competitive analysis, requirements, legal and compliance considerations, and a launch plan.</li>
+</ol>
+
+<h2>Scope of the Project</h2>
+<table class="keep">
+  <caption>Scope of the project</caption>
+  <tr><th style="width:50%">In scope</th><th>Out of scope</th></tr>
+  <tr><td>A working UPI-style wallet (registration, balance, send money, history) with synthetic money</td><td>Integration with real banks, NPCI or any real payment network</td></tr>
+  <tr><td>Pre-transaction risk scoring: 20 features, 11 rules, calibrated ML, blending, overrides and reasons</td><td>Card-not-present, net-banking, loan or investment fraud</td></tr>
+  <tr><td>Proportional interventions for LOW / MEDIUM / HIGH in the payer's UI</td><td>Telecom-side controls (call/SMS blocking)</td></tr>
+  <tr><td>Analyst console, admin console (rules, thresholds, model, simulator, system health)</td><td>Case management, chargebacks, legal reporting workflows</td></tr>
+  <tr><td>Synthetic data generator, training, calibration, evaluation harness</td><td>Evaluation on real labelled fraud data (not available to us)</td></tr>
+  <tr><td>Product documentation: research, market, compliance, launch plan</td><td>Production certification (penetration test, RBI/PCI audit)</td></tr>
+</table>
+
+<h2>Organisation of the Report</h2>
+<p>Chapter 2 defines the problem with data and analyses its root causes. Chapter 3 describes user research: personas, the questionnaire and the user journey. Chapter 4 analyses the market and competitors. Chapter 5 presents the proposed solution and business model. Chapter 6 specifies the requirements. Chapter 7 covers policies, law and compliance. Chapter 8 details the system design, and Chapter 9 the implementation. Chapter 10 reports testing and results. Chapter 11 discusses challenges and limitations, Chapter 12 the future roadmap, and Chapter 13 the product-launch documentation. Chapter 14 concludes. The appendices contain the full questionnaire, the survey-data template, additional diagrams, code excerpts and a user manual.</p>

@@ -1,0 +1,103 @@
+<h1>Requirements Specification</h1>
+<p>This chapter specifies the software requirements following the structure recommended by IEEE Std 830 <c>ieee830</c>. Requirements are identified so that they can be traced to design elements (Chapter 8) and test cases (Chapter 10). Priorities use the MoSCoW scheme (M = must, S = should, C = could).</p>
+
+<h2>Users and Roles</h2>
+<table class="keep">
+  <caption>User classes and their privileges</caption>
+  <tr><th style="width:15%">Role</th><th>Description</th><th style="width:38%">Main functions</th></tr>
+  <tr><td>User (payer)</td><td>Wallet holder sending money</td><td>Register, log in, view balance and history, send money, answer questions, cancel and report, view My Safety</td></tr>
+  <tr><td>Analyst</td><td>Fraud-operations staff</td><td>Everything a user can do, plus live alert queue, alert detail, FRAUD / SAFE verdicts</td></tr>
+  <tr><td>Admin</td><td>Risk manager / system owner</td><td>Everything an analyst can do, plus rules and thresholds, what-if, model retraining, evaluation, simulator, system health</td></tr>
+</table>
+
+<h2>Functional Requirements</h2>
+<table>
+  <caption>Functional requirements</caption>
+  <tr><th style="width:9%">ID</th><th>Requirement</th><th style="width:7%">Priority</th></tr>
+  <tr><th colspan="3">Accounts and wallet</th></tr>
+  <tr><td>FR-1</td><td>The system shall allow a person to register with name, e-mail and a password of at least 8 characters, assign a UPI ID and credit synthetic starting balance (₹25,000).</td><td>M</td></tr>
+  <tr><td>FR-2</td><td>The system shall authenticate users and maintain a session using an httpOnly cookie, and shall count failed logins as a risk signal.</td><td>M</td></tr>
+  <tr><td>FR-3</td><td>The system shall show balance, 30-day spending by day, transaction history (filterable by status and risk band) and number of warnings received.</td><td>M</td></tr>
+  <tr><td>FR-4</td><td>The system shall let a user look up a payee and see display name, age on the platform, report count and whether the user has paid them before.</td><td>S</td></tr>
+  <tr><th colspan="3">Risk check and payment</th></tr>
+  <tr><td>FR-5</td><td>On a payment request, the system shall compute the 20 defined features from the user's and payee's state without moving any money.</td><td>M</td></tr>
+  <tr><td>FR-6</td><td>The system shall evaluate all enabled rules, obtain a calibrated ML probability, blend them into a 0–100 score and assign a band using configurable thresholds.</td><td>M</td></tr>
+  <tr><td>FR-7</td><td>The system shall apply hard overrides: confirmed scam payee → score ≥ 95 and blocked; OTP/app-install request → at least HIGH.</td><td>M</td></tr>
+  <tr><td>FR-8</td><td>The system shall return reason codes, a one-line summary and the top three plain-language reasons with every decision.</td><td>M</td></tr>
+  <tr><td>FR-9</td><td>The check endpoint shall be idempotent with respect to an <span class="mono">Idempotency-Key</span> header.</td><td>M</td></tr>
+  <tr><td>FR-10</td><td>The system shall issue a signed check token (10 minutes) binding user, transaction, amount and payee; confirm shall require it.</td><td>M</td></tr>
+  <tr><td>FR-11</td><td>For LOW risk the payment shall proceed with no additional step.</td><td>M</td></tr>
+  <tr><td>FR-12</td><td>For MEDIUM risk the UI shall show the warning, reasons and three yes/no questions; answers shall re-score the payment and may only raise the score.</td><td>M</td></tr>
+  <tr><td>FR-13</td><td>For HIGH risk the system shall enforce a 10-second cooldown and require the payee UPI ID to be retyped exactly before confirm succeeds.</td><td>M</td></tr>
+  <tr><td>FR-14</td><td>Confirm shall debit the payer, write ledger entries, credit a platform payee and mark the transaction completed atomically, and shall prevent double spending.</td><td>M</td></tr>
+  <tr><td>FR-15</td><td>The user shall be able to cancel a pending payment and optionally report the payee; each user may report a payee once.</td><td>M</td></tr>
+  <tr><th colspan="3">Analyst and admin</th></tr>
+  <tr><td>FR-16</td><td>MEDIUM and HIGH decisions shall create alerts that appear in the analyst console in real time.</td><td>M</td></tr>
+  <tr><td>FR-17</td><td>The analyst shall see features, all reasons with technical detail, ML top contributing features and payee history, and record a FRAUD or SAFE verdict with notes.</td><td>M</td></tr>
+  <tr><td>FR-18</td><td>A FRAUD verdict shall label the transaction, mark the payee as confirmed fraud and update its reputation.</td><td>M</td></tr>
+  <tr><td>FR-19</td><td>The admin shall enable/disable rules and edit their weights and parameters, blend weights and band thresholds at runtime, with a what-if preview on labelled holdout data.</td><td>S</td></tr>
+  <tr><td>FR-20</td><td>The admin shall trigger retraining using synthetic data plus analyst labels and view the evaluation of the active model.</td><td>S</td></tr>
+  <tr><td>FR-21</td><td>The admin shall run scam scenarios (normal, impersonation, mule, velocity, takeover) through the real pipeline.</td><td>S</td></tr>
+  <tr><td>FR-22</td><td>The admin shall view system health: service status, decisions by band, latency percentiles, ML outcomes and breaker state, queue depths.</td><td>S</td></tr>
+  <tr><td>FR-23</td><td>Security-relevant administrative actions (verdicts, rule changes, retraining, simulator runs) shall be written to an audit log.</td><td>M</td></tr>
+</table>
+
+<h2>Non-Functional Requirements</h2>
+<table>
+  <caption>Non-functional requirements with measurable targets and achieved status</caption>
+  <tr><th style="width:9%">ID</th><th style="width:14%">Category</th><th>Requirement</th><th style="width:22%">Status (Chapter 10)</th></tr>
+  <tr><td>NFR-1</td><td>Performance</td><td>p95 latency of <span class="mono">POST /payments/check</span> &lt; 300 ms end-to-end on the reference machine.</td><td>Met: ≈ 110 ms at 20 req/s</td></tr>
+  <tr><td>NFR-2</td><td>Performance</td><td>ML scoring call capped at 150 ms; ML service p95 &lt; 50 ms for a single request.</td><td>Met (tested)</td></tr>
+  <tr><td>NFR-3</td><td>Availability</td><td>If the ML service is slow or down, payments shall still be scored with rules only and flagged as degraded.</td><td>Met (tested)</td></tr>
+  <tr><td>NFR-4</td><td>Consistency</td><td>No negative balances; exactly one of several concurrent confirms succeeds.</td><td>Met (tested, 5 concurrent)</td></tr>
+  <tr><td>NFR-5</td><td>Security</td><td>Passwords hashed (bcrypt, cost 10); role checks server-side on every route; input validated on every request; rate limits on auth (20/min/IP) and check (120/min/user).</td><td>Met</td></tr>
+  <tr><td>NFR-6</td><td>Security</td><td>Check tokens signed (HS256) and short-lived; tampered or foreign tokens rejected.</td><td>Met (tested)</td></tr>
+  <tr><td>NFR-7</td><td>Privacy</td><td>Device identifiers stored only as hashes; no card or bank data; synthetic data only.</td><td>Met</td></tr>
+  <tr><td>NFR-8</td><td>Scalability</td><td>API and ML services stateless so they can scale horizontally; shared state in Redis/PostgreSQL.</td><td>Designed; not load-tested beyond one instance</td></tr>
+  <tr><td>NFR-9</td><td>Usability</td><td>No added step for LOW payments; at most three reasons shown; HIGH screen cannot be dismissed accidentally; dark mode and mobile layout.</td><td>Met (screenshots, e2e)</td></tr>
+  <tr><td>NFR-10</td><td>Explainability</td><td>Every decision carries reason codes; analysts see per-feature model contributions.</td><td>Met</td></tr>
+  <tr><td>NFR-11</td><td>Reproducibility</td><td>Data generation, training and evaluation are deterministic for a given seed.</td><td>Met (seed 42)</td></tr>
+  <tr><td>NFR-12</td><td>Maintainability</td><td>Feature and rule definitions shared between Node and Python via a JSON spec with parity tests.</td><td>Met (300 parity cases)</td></tr>
+  <tr><td>NFR-13</td><td>Portability</td><td>Whole stack starts with one command on any machine with Docker.</td><td>Met (<span class="mono">make demo</span>)</td></tr>
+  <tr><td>NFR-14</td><td>Observability</td><td>Structured logs with request IDs; health and readiness endpoints; metrics page.</td><td>Met</td></tr>
+</table>
+
+<h2>Hardware and Software Requirements</h2>
+<table class="keep">
+  <caption>Hardware requirements</caption>
+  <tr><th>Environment</th><th>Minimum</th><th>Used for development and testing</th></tr>
+  <tr><td>Development / demo machine</td><td>4-core 64-bit CPU, 8 GB RAM, 10 GB free disk</td><td>Apple-silicon laptop, 10 cores, Docker Desktop</td></tr>
+  <tr><td>Client</td><td>Any modern browser (desktop or mobile)</td><td>Chromium, Safari; 390 px mobile viewport</td></tr>
+  <tr><td>Pilot server (projected)</td><td>2 × 4 vCPU / 16 GB VMs + managed PostgreSQL and Redis</td><td>—</td></tr>
+</table>
+<table class="keep">
+  <caption>Software requirements</caption>
+  <tr><th style="width:28%">Component</th><th>Version</th></tr>
+  <tr><td>Operating system</td><td>macOS, Linux or Windows with WSL2</td></tr>
+  <tr><td>Docker Engine / Compose</td><td>Docker Desktop with Compose v2</td></tr>
+  <tr><td>Node.js</td><td>≥ 20 (TypeScript 5.6)</td></tr>
+  <tr><td>Python</td><td>3.11+ with FastAPI 0.115, scikit-learn 1.6, pandas 2.2, NumPy 2.2</td></tr>
+  <tr><td>Web</td><td>Next.js 15, React 19, Tailwind CSS 4, TanStack Query 5, Recharts 2</td></tr>
+  <tr><td>API</td><td>Express, Prisma 6, ioredis, BullMQ, zod, pino</td></tr>
+  <tr><td>Data stores</td><td>PostgreSQL 16, Redis 7</td></tr>
+  <tr><td>Testing</td><td>Vitest, supertest, pytest, Playwright, autocannon</td></tr>
+</table>
+
+<h2>Constraints and Assumptions</h2>
+<h3>Constraints</h3>
+<ul>
+  <li><b>No real payment network or data.</b> Students cannot connect to NPCI or obtain bank fraud data, so all users, money and fraud cases are synthetic.</li>
+  <li><b>Time.</b> The core build had to be completed within a one-week sprint, which favoured simple, well-understood components over breadth.</li>
+  <li><b>Latency.</b> Scoring must fit inside a real-time payment flow; this rules out heavy models and slow explanation methods at request time.</li>
+  <li><b>Hardware.</b> Everything must run on a single laptop for the demonstration.</li>
+  <li><b>Regulation.</b> A production deployment would be subject to RBI, NPCI and DPDP Act obligations (Chapter 7) which a student prototype cannot meet in full.</li>
+</ul>
+<h3>Assumptions</h3>
+<ul>
+  <li>All hour-of-day features use Indian Standard Time; the maximum payment is ₹1,00,000.</li>
+  <li>The payer's device sends a stable random identifier; the server stores only its hash.</li>
+  <li><span class="mono">payee_age_days</span> is time since the payee was first seen on the platform (0 if never).</li>
+  <li><span class="mono">failed_attempts_15min</span> counts failed logins plus failed recipient-retype checks.</li>
+  <li>Questionnaire answers are voluntary and may be untruthful; they can therefore only increase risk.</li>
+  <li>Analyst verdicts are authoritative for blocking a payee; user reports alone never block.</li>
+</ul>

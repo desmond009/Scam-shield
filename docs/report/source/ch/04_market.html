@@ -1,0 +1,92 @@
+<h1>Market and Competitive Analysis</h1>
+
+<h2>Market Size and Opportunity</h2>
+<p>ScamShield is positioned as a business-to-business (B2B) risk engine for institutions that originate UPI payments — banks, small finance and cooperative banks, and third-party application providers (TPAPs) — with the consumer-facing intervention screens supplied as a software development kit (SDK). We estimate the market in two ways: top-down from published market studies, and bottom-up from UPI volumes. Every assumption is stated so that it can be challenged.</p>
+
+<h3>Top-down: fraud detection and prevention in India</h3>
+<p>Published estimates of the Indian fraud detection and prevention (FDP) market vary widely. MarketsandMarkets estimates about US$ 990 million in 2026, growing at 22.4 % a year to about US$ 2.7 billion by 2031 <c>mkt_mm</c>; IMARC estimates US$ 1.4 billion in 2024, growing at about 20 % a year to US$ 8.9 billion by 2033 <c>mkt_imarc</c>. The two studies use different scopes and base years, so we take the lower figure as a conservative TAM. Both agree on a growth rate of 20–22 % a year.</p>
+
+<h3>Bottom-up: pre-transaction scam scoring for UPI</h3>
+<p>UPI processed about 24,162 crore (≈ 241.6 billion) transactions in FY2025-26 <c>upi_fy26</c>. If every UPI payment initiated by a customer were scored by a pre-transaction scam engine priced at an assumed <b>2 paise per scored payment</b>, the annual spend would be about 241.6 × 10<sup>9</sup> × ₹0.02 ≈ <b>₹483 crore</b>. This is the serviceable market for the specific capability we offer.</p>
+<table class="keep">
+  <caption>TAM, SAM and SOM estimates (assumptions in the last column)</caption>
+  <tr><th style="width:12%">Level</th><th style="width:30%">Definition</th><th class="n" style="width:20%">Estimate (per year)</th><th>Basis and assumptions</th></tr>
+  <tr><td><b>TAM</b></td><td>All fraud detection and prevention spending in India</td><td class="n">≈ US$ 990 million<br>(≈ ₹8,400 crore)</td><td>MarketsandMarkets 2026 estimate <c>mkt_mm</c>; ₹85 per US$ assumed. Higher published estimates exist <c>mkt_imarc</c>.</td></tr>
+  <tr><td><b>SAM</b></td><td>Pre-transaction scam-risk scoring of customer-initiated UPI payments</td><td class="n">≈ ₹483 crore</td><td>241.6 bn UPI transactions (FY26) × assumed ₹0.02 per scored payment.</td></tr>
+  <tr><td><b>SOM</b></td><td>Share obtainable within five years of launch</td><td class="n">≈ ₹4.8 crore</td><td>1 % of UPI volume (≈ 2.4 bn scored payments a year), from 5–10 cooperative / small finance banks and smaller TPAPs, at ₹0.02 each.</td></tr>
+</table>
+<figure class="small">
+  <img class="plain" src="fig/tam.png">
+  <figcaption>TAM, SAM and SOM for ScamShield (annual, ₹ crore, log scale)</figcaption>
+</figure>
+<p>The SOM is deliberately modest. Large banks and the largest payment apps build fraud capability in-house or buy from established vendors; our realistic first customers are smaller institutions with real-time UPI exposure but without a data-science team. Regulatory momentum works in our favour: RBI's 2025 authentication directions require risk-based checks in addition to two-factor authentication from April 2026 <c>rbi_auth</c>, and RBI's Innovation Hub has shown with MuleHunter.AI that banks will adopt AI-based mule detection <c>mulehunter, mulehunter_mou</c>.</p>
+
+<h2>Existing Competitors and Alternatives</h2>
+<table>
+  <caption>Existing solutions and alternatives</caption>
+  <tr><th style="width:24%">Solution</th><th style="width:16%">Type</th><th>What it does</th><th style="width:22%">Gap relative to our problem</th></tr>
+  <tr><td>Bank fraud-risk-management platforms (e.g. FICO Falcon, Clari5, SAS, Feedzai)</td><td>Commercial B2B</td><td>Real-time transaction monitoring and case management inside banks, driven by rules and models.</td><td>Expensive, aimed at large banks; typically decline or hold silently — the payer is not given an explanation or asked about context.</td></tr>
+  <tr><td>MuleHunter.AI (RBI Innovation Hub)</td><td>Regulator-backed AI</td><td>Identifies likely mule accounts at the receiving bank; used by about two dozen banks <c>mulehunter, mulehunter_mou</c>.</td><td>Focuses on the receiving side; does not intervene at the payer's moment of decision.</td></tr>
+  <tr><td>DoT Financial Fraud Risk Indicator (FRI)</td><td>Government</td><td>Rates mobile numbers as medium, high or very high fraud risk using NCRP, Chakshu and institution data; some payment apps use it to block payments <c>dot_fri</c>.</td><td>One signal (the phone number) — complementary input, not a full risk engine.</td></tr>
+  <tr><td>Sanchar Saathi / Chakshu</td><td>Government</td><td>Citizens report suspected fraud communications; numbers and handsets are disconnected or blacklisted <c>sancharsaathi</c>.</td><td>Telecom layer; acts on reports after the fact.</td></tr>
+  <tr><td>1930 helpline / CFCFRMS (I4C)</td><td>Government</td><td>Victims report fraud; funds in the chain are frozen <c>cfcfrms_saved</c>.</td><td>Post-transaction; depends on fast reporting.</td></tr>
+  <tr><td>In-app warnings in major UPI apps</td><td>Built-in</td><td>Apps show warnings for some suspicious payees or links; details are proprietary.</td><td>Not available to smaller banks/TPAPs; approach not published, so effectiveness cannot be assessed.</td></tr>
+  <tr><td>Caller-identification apps (e.g. Truecaller)</td><td>Consumer app</td><td>Labels spam and suspected fraud calls.</td><td>Does not see the payment; easily bypassed with fresh numbers or messaging apps.</td></tr>
+  <tr><td>UK Confirmation of Payee and APP reimbursement (international)</td><td>Regulatory model</td><td>Name-matching check before payment; mandatory reimbursement of APP fraud, split between sending and receiving firms, since October 2024 <c>uk_psr</c>.</td><td>Reference for policy; reimbursement creates strong incentives for pre-transaction controls.</td></tr>
+</table>
+
+<h2>Feature Comparison</h2>
+<table class="keep">
+  <caption>Feature comparison: ScamShield versus alternatives (✓ yes, ◐ partial, ✗ no, ? not public)</caption>
+  <tr><th>Capability</th><th>ScamShield</th><th>Bank FRM platform</th><th>MuleHunter.AI</th><th>DoT FRI</th><th>In-app warnings</th><th>1930 / CFCFRMS</th></tr>
+  <tr><td>Acts before the money moves</td><td>✓</td><td>✓</td><td>◐</td><td>✓</td><td>✓</td><td>✗</td></tr>
+  <tr><td>Explains the risk to the payer in plain language</td><td>✓</td><td>✗</td><td>✗</td><td>◐</td><td>◐</td><td>✗</td></tr>
+  <tr><td>Proportional friction (none / warn / pause-and-verify)</td><td>✓</td><td>◐</td><td>✗</td><td>◐</td><td>?</td><td>✗</td></tr>
+  <tr><td>Asks the payer for scam context</td><td>✓</td><td>✗</td><td>✗</td><td>✗</td><td>?</td><td>✗</td></tr>
+  <tr><td>Per-user behavioural baseline</td><td>✓</td><td>✓</td><td>?</td><td>✗</td><td>?</td><td>✗</td></tr>
+  <tr><td>Cross-payer mule signal</td><td>✓</td><td>◐</td><td>✓</td><td>◐</td><td>?</td><td>◐</td></tr>
+  <tr><td>Analyst console with live alerts and feedback loop</td><td>✓</td><td>✓</td><td>?</td><td>✗</td><td>✗</td><td>◐</td></tr>
+  <tr><td>Runtime-editable rules with what-if preview</td><td>✓</td><td>✓</td><td>?</td><td>✗</td><td>✗</td><td>✗</td></tr>
+  <tr><td>Graceful degradation if the model is down</td><td>✓</td><td>?</td><td>?</td><td>—</td><td>?</td><td>—</td></tr>
+  <tr><td>Affordable for small banks / TPAPs</td><td>✓</td><td>✗</td><td>◐</td><td>✓</td><td>✗</td><td>✓</td></tr>
+  <tr><td>Validated on real fraud data</td><td>✗</td><td>✓</td><td>✓</td><td>✓</td><td>?</td><td>—</td></tr>
+</table>
+<p>The comparison is deliberately candid: the established systems have one decisive advantage that we lack — validation on real fraud data. Our differentiation lies in the payer-facing half of the problem.</p>
+
+<h2>SWOT Analysis</h2>
+<div class="grid2 swot">
+  <div><h4>Strengths</h4><ul>
+    <li>Hybrid engine: explainable rules + calibrated ML, with hard overrides</li>
+    <li>Payer-facing, proportional intervention and context questions</li>
+    <li>Low latency (p95 ≈ 110 ms) and graceful degradation</li>
+    <li>Honest, reproducible evaluation harness and simulator</li>
+    <li>Runtime-tunable rules and thresholds with what-if preview</li></ul></div>
+  <div><h4>Weaknesses</h4><ul>
+    <li>Trained and evaluated only on synthetic data</li>
+    <li>No integration with NPCI or real bank systems yet</li>
+    <li>Questionnaire relies on the user's honesty</li>
+    <li>Single-instance deployment tested only to ≈ 20 requests/s</li>
+    <li>Student team without sales or compliance track record</li></ul></div>
+  <div><h4>Opportunities</h4><ul>
+    <li>RBI's 2025 risk-based authentication directions <c>rbi_auth</c></li>
+    <li>Fast-growing FDP market (≈ 20 % a year) <c>mkt_mm, mkt_imarc</c></li>
+    <li>Thousands of cooperative and small banks lacking in-house data science</li>
+    <li>Integration of public signals (DoT FRI, Suspect Registry)</li>
+    <li>Multilingual warnings for first-time digital users</li></ul></div>
+  <div><h4>Threats</h4><ul>
+    <li>Large UPI apps and established FRM vendors adding similar features</li>
+    <li>Scammers adapting scripts to coach victims through warnings</li>
+    <li>Regulatory and data-protection obligations raise the cost of entry</li>
+    <li>False positives damaging user trust and institution adoption</li>
+    <li>Long B2B sales and security-audit cycles in banking</li></ul></div>
+</div>
+
+<h2>Unique Value Proposition</h2>
+<div class="box"><b>For</b> banks and payment apps whose customers are being talked into paying scammers, <b>ScamShield</b> is a pre-transaction scam-risk engine that <b>stops the scam before the money moves</b> — explaining the risk to the payer in one sentence, asking the questions a fraud analyst would ask, and adding friction only when it matters. <b>Unlike</b> conventional fraud-monitoring platforms that silently decline or hold payments, ScamShield turns the payer into the last line of defence, and turns every confirmed scam into protection for every other user.</div>
+<p>Four things make the proposition distinctive:</p>
+<ol>
+  <li><b>Intervention, not just detection.</b> The output is a designed user experience (none / warn and ask / pause and verify), not only a score.</li>
+  <li><b>Explainable by construction.</b> Every decision carries reason codes rendered as plain sentences for users and technical detail for analysts.</li>
+  <li><b>Measured honestly.</b> The evaluation harness compares rules, ML and hybrid on a time-based holdout and publishes the trade-offs, including where the hybrid is worse.</li>
+  <li><b>Built for smaller institutions.</b> Container-based, runs on modest hardware, and lets operations staff tune rules without code changes.</li>
+</ol>

@@ -1,0 +1,78 @@
+@page { size: A4; margin: 24mm 20mm 22mm 30mm;
+  @top-right { content: "ScamShield — Final-Year Project Report"; font: italic 9pt "Times New Roman", serif; color: #555; }
+  @bottom-left { content: "Dept. of CSE, IIIT Dharwad"; font: 9pt "Times New Roman", serif; color: #555; }
+  @bottom-right { content: counter(page); font: 10pt "Times New Roman", serif; } }
+body.front { }
+@page fm { @top-right { content: none; } @bottom-left { content: none; } @bottom-right { content: none; }
+  @bottom-center { content: counter(page, lower-roman); font: 10pt "Times New Roman", serif; } }
+@page bare { @top-right { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } @bottom-center { content: none; } }
+body.front .fm { page: fm; }
+body.front .bare { page: bare; }
+html { font-family: "Times New Roman", Times, serif; font-size: 12pt; color: #111; }
+body { margin: 0; line-height: 1.5; text-align: justify; hyphens: auto; -webkit-print-color-adjust: exact; }
+p { margin: 0 0 8pt; orphans: 3; widows: 3; }
+h1.chapter { break-before: page; margin: 0 0 18pt; padding-bottom: 8pt; border-bottom: 1.5pt solid #1f3f73; text-align: left; }
+h1.chapter .chap-label { display: block; font-size: 13pt; font-weight: normal; letter-spacing: 1.5pt; text-transform: uppercase; color: #1f3f73; }
+h1.chapter .chap-title { display: block; font-size: 22pt; line-height: 1.2; margin-top: 4pt; }
+h2 { font-size: 14.5pt; margin: 16pt 0 6pt; color: #1f3f73; break-after: avoid; text-align: left; }
+h3 { font-size: 12.5pt; margin: 12pt 0 4pt; break-after: avoid; text-align: left; }
+h4 { font-size: 12pt; font-style: italic; margin: 8pt 0 3pt; break-after: avoid; }
+ul, ol { margin: 0 0 8pt; padding-left: 20pt; }
+li { margin-bottom: 2pt; }
+table { border-collapse: collapse; width: 100%; margin: 6pt 0 14pt; font-size: 10pt; line-height: 1.3; text-align: left; break-inside: auto; }
+table.keep { break-inside: avoid; }
+caption { caption-side: top; text-align: left; font-size: 10.5pt; padding-bottom: 4pt; }
+th { background: #e8eef7; font-weight: bold; }
+th, td { border: 0.6pt solid #9aa5b5; padding: 3pt 5pt; vertical-align: top; }
+tr { break-inside: avoid; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+figure { margin: 10pt 0 14pt; text-align: center; break-inside: avoid; }
+figure img { max-width: 100%; max-height: 165mm; border: 0.5pt solid #ccc; }
+figure img.plain { border: none; }
+figure.small img { max-width: 72%; }
+figure.tiny img { max-width: 45%; }
+figcaption { font-size: 10.5pt; margin-top: 5pt; text-align: center; line-height: 1.3; }
+.mermaid { display: flex; justify-content: center; }
+.mermaid svg { max-width: 100% !important; height: auto; max-height: 175mm; }
+figure.m-small .mermaid svg { max-width: 80% !important; }
+code, .mono { font-family: Menlo, "Courier New", monospace; font-size: 9pt; }
+pre.code { font-family: Menlo, monospace; font-size: 8.3pt; line-height: 1.35; background: #f6f7f9; border: 0.5pt solid #d5d9e0; padding: 6pt 8pt; white-space: pre-wrap; text-align: left; break-inside: avoid; margin: 4pt 0 12pt; }
+.cite { white-space: nowrap; }
+.note { border-left: 3pt solid #c98500; background: #fff8e6; padding: 5pt 8pt; margin: 8pt 0 12pt; font-size: 10.5pt; line-height: 1.4; break-inside: avoid; }
+.todo { border: 1pt dashed #c0392b; background: #fdf0ef; padding: 5pt 8pt; margin: 8pt 0 12pt; font-size: 10.5pt; break-inside: avoid; }
+.todo::before { content: "TEAM TO COMPLETE — "; font-weight: bold; color: #c0392b; }
+.box { border: 0.8pt solid #9aa5b5; padding: 6pt 10pt; margin: 8pt 0 12pt; break-inside: avoid; font-size: 11pt; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin: 6pt 0 12pt; }
+.grid2 > div { border: 0.8pt solid #9aa5b5; padding: 5pt 8pt; font-size: 10pt; line-height: 1.35; break-inside: avoid; text-align: left; }
+.grid2 h4 { margin-top: 0; font-style: normal; color: #1f3f73; }
+.swot div:nth-child(1) { background: #eef7f1; } .swot div:nth-child(2) { background: #fdf0ef; }
+.swot div:nth-child(3) { background: #eef3fb; } .swot div:nth-child(4) { background: #fff8e6; }
+.persona { border: 0.8pt solid #9aa5b5; margin: 8pt 0 12pt; break-inside: avoid; font-size: 10.5pt; line-height: 1.38; }
+.persona .ph { background: #1f3f73; color: #fff; padding: 4pt 8pt; font-weight: bold; }
+.persona .pb { padding: 5pt 8pt; display: grid; grid-template-columns: 30mm 1fr; gap: 2pt 8pt; text-align: left; }
+.persona .pb b { color: #1f3f73; }
+.canvas { display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: auto auto auto; gap: 0; border: 1pt solid #555; font-size: 8.8pt; line-height: 1.3; break-inside: avoid; margin: 6pt 0 12pt; text-align: left; }
+.canvas > div { border: 0.6pt solid #888; padding: 4pt 5pt; }
+.canvas h4 { margin: 0 0 3pt; font-size: 9.5pt; font-style: normal; color: #1f3f73; text-transform: uppercase; letter-spacing: .3pt; }
+.canvas ul { padding-left: 11pt; margin: 0; }
+.eq { text-align: center; margin: 6pt 0 10pt; font-style: italic; }
+#reflist { font-size: 10.5pt; line-height: 1.4; padding-left: 26pt; text-align: left; }
+#reflist li { margin-bottom: 4pt; word-break: break-word; }
+.small { font-size: 10pt; }
+/* front matter */
+.titlepage { page: bare; text-align: center; height: 245mm; display: flex; flex-direction: column; justify-content: space-between; break-after: page; }
+.titlepage .tp-top { font-size: 12pt; }
+.fmh { text-align: center; font-size: 17pt; font-weight: bold; color: #1f3f73; margin: 0 0 16pt; text-transform: uppercase; letter-spacing: 1pt; }
+.fmsec { break-after: page; }
+.sig { display: flex; justify-content: space-between; margin-top: 40pt; text-align: left; }
+.sig div { width: 45%; border-top: 0.8pt solid #333; padding-top: 4pt; font-size: 11pt; line-height: 1.35; }
+.toc-row { display: flex; align-items: baseline; font-size: 11pt; line-height: 1.55; text-align: left; }
+.toc-row.l0 { font-weight: bold; margin-top: 4pt; }
+.toc-row.l1 { padding-left: 14pt; }
+.toc-row .tn { min-width: 22mm; flex: none; }
+.toc-row.l1 .tn { min-width: 12mm; }
+.toc-row .dots { flex: 1; border-bottom: 1pt dotted #888; margin: 0 4pt; transform: translateY(-3pt); min-width: 8mm; }
+.toc-row .tp { flex: none; min-width: 7mm; text-align: right; }
+.toc-row .tt { flex: 0 1 auto; }
+
+figure.tall .mermaid svg { max-height: 215mm; }
